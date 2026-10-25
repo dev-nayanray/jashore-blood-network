@@ -1,0 +1,25 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'FreeSerif, serif','fontSize':'14px','primaryColor':'#edebe7','primaryTextColor':'#20201d','primaryBorderColor':'#5e563d','lineColor':'#8b7638','secondaryColor':'#f4f3f1','tertiaryColor':'#f7f7f6'}}}%%
+flowchart LR
+    classDef client fill:#e4ecf5,stroke:#5e563d,stroke-width:1.2px,color:#20201d
+    classDef web fill:#edebe7,stroke:#5e563d,stroke-width:1.5px,color:#20201d
+    classDef api fill:#f0efeb,stroke:#5e563d,stroke-width:1.5px,color:#20201d
+    classDef db fill:#f4f3f1,stroke:#5e563d,stroke-width:1.5px,color:#20201d
+    classDef ext fill:#f7f7f6,stroke:#8b7638,stroke-width:1.2px,stroke-dasharray:4 3,color:#20201d
+
+    USER[Users<br/>Donors / Requesters<br/>Admins]:::client
+    WEB[Next.js App Router<br/>Vercel<br/>SSR + Client]:::web
+    API[NestJS REST API<br/>Render<br/>/api/v1/*]:::api
+    AUTH[Supabase Auth<br/>OTP / Email]:::db
+    POOL[Connection Pooler<br/>Supavisor]:::db
+    DB[(PostgreSQL<br/>RLS Enabled)]:::db
+    EMAIL[Email Service<br/>Resend]:::ext
+    SMS[SMS Provider<br/>Future Phase]:::ext
+
+    USER -->|HTTPS| WEB
+    WEB -->|REST + JWT| API
+    WEB -.Server-side calls.-> AUTH
+    API -->|Verify JWT| AUTH
+    API -->|Prisma Client| POOL
+    POOL --> DB
+    API -->|Transactional| EMAIL
+    API -.later.-> SMS

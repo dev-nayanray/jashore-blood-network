@@ -1,0 +1,70 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'FreeSerif, serif','fontSize':'13px','primaryColor':'#edebe7','primaryTextColor':'#20201d','primaryBorderColor':'#5e563d','lineColor':'#8b7638'}}}%%
+erDiagram
+    PROFILES ||--o{ USER_ROLES : "has"
+    PROFILES ||--o| DONOR_PROFILES : "may be"
+    PROFILES ||--o{ BLOOD_REQUESTS : "creates"
+    PROFILES ||--o{ REQUEST_RESPONSES : "makes"
+    DISTRICTS ||--o{ UPAZILAS : "contains"
+    UPAZILAS ||--o{ LOCALITIES : "contains"
+    DONOR_PROFILES }o--|| UPAZILAS : "located in"
+    DONOR_PROFILES }o--o| LOCALITIES : "may specify"
+    BLOOD_REQUESTS }o--|| UPAZILAS : "needed at"
+    BLOOD_REQUESTS }o--o| HOSPITALS : "treats at"
+    HOSPITALS ||--o| FACILITY_VERIFICATIONS : "verified by"
+    HOSPITALS }o--o| BLOOD_BANKS : "may host"
+    PROFILES ||--o{ NOTIFICATIONS : "receives"
+    PROFILES ||--o| NOTIFICATION_PREFERENCES : "configures"
+    PROFILES ||--o{ CONSENT_RECORDS : "consents"
+    PROFILES ||--o{ ABUSE_REPORTS : "files or reported in"
+    PROFILES ||--o{ AUDIT_LOGS : "actions logged"
+
+    PROFILES {
+        uuid id PK
+        text phone UK
+        text email
+        text full_name
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+    USER_ROLES {
+        uuid id PK
+        uuid profile_id FK
+        enum role
+        uuid granted_by FK
+        timestamptz granted_at
+    }
+    DONOR_PROFILES {
+        uuid id PK
+        uuid profile_id FK
+        enum blood_group
+        uuid upazila_id FK
+        uuid locality_id FK
+        date last_donation_at
+        boolean is_available
+        timestamptz availability_confirmed_at
+        enum visibility
+    }
+    BLOOD_REQUESTS {
+        uuid id PK
+        uuid requester_id FK
+        enum blood_group
+        smallint units_requested
+        uuid upazila_id FK
+        uuid hospital_id FK
+        timestamptz required_by
+        enum status
+        timestamptz expires_at
+    }
+    REQUEST_RESPONSES {
+        uuid id PK
+        uuid request_id FK
+        uuid donor_id FK
+        enum status
+        timestamptz responded_at
+    }
+    HOSPITALS {
+        uuid id PK
+        text name
+        uuid upazila_id FK
+        enum verification_status
+    }

@@ -1,0 +1,24 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'FreeSerif, serif','fontSize':'13px','primaryColor':'#edebe7','primaryTextColor':'#20201d','primaryBorderColor':'#5e563d','lineColor':'#8b7638','sectionBkgColor':'#f4f3f1','altSectionBkgColor':'#f7f7f6','gridColor':'#c1bbaa','doneTaskBkgColor':'#5e563d','doneTaskTextColor':'#f7f7f6','activeTaskBkgColor':'#917520','activeTaskTextColor':'#f7f7f6','taskBkgColor':'#edebe7','taskTextColor':'#20201d','taskTextLightColor':'#20201d','taskTextOutsideColor':'#20201d','taskTextClickableColor':'#917520'}}}%%
+gantt
+    title Jashore Blood Network — Development Phases
+    dateFormat YYYY-MM-DD
+    axisFormat %b
+    todayMarker off
+
+    section Foundation
+    Phase 0 Discovery & Audit       :p0, 2026-01-01, 7d
+    Phase 1 Architecture Approval   :p1, after p0, 7d
+    Phase 2 Repo Foundation         :p2, after p1, 14d
+
+    section Core
+    Phase 3 DB Schema & RLS         :p3, after p2, 14d
+    Phase 4 Auth & Profiles         :p4, after p3, 18d
+    Phase 5 Donor Reg & Search      :p5, after p4, 21d
+    Phase 6 Requests & Responses    :p6, after p5, 24d
+
+    section Pilot
+    Phase 7 Hospital Directory      :p7, after p6, 14d
+    Phase 8 Notifications & Abuse   :p8, after p7, 14d
+    Phase 9 Testing & Security      :p9, after p8, 18d
+    Phase 10 Deployment & Pilot     :p10, after p9, 14d
+    Phase 11 Monitoring & Expand    :p11, after p10, 30d

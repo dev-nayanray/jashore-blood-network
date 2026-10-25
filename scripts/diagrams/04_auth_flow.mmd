@@ -1,0 +1,23 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'FreeSerif, serif','fontSize':'13px','primaryColor':'#edebe7','primaryTextColor':'#20201d','primaryBorderColor':'#5e563d','lineColor':'#8b7638','actorBkg':'#edebe7','actorBorder':'#5e563d','actorTextColor':'#20201d','signalColor':'#20201d','signalTextColor':'#20201d','noteBkgColor':'#f4f3f1','noteBorderColor':'#8b7638'}}}%%
+sequenceDiagram
+    autonumber
+    participant U as User (Phone)
+    participant W as Next.js Web
+    participant A as NestJS API
+    participant S as Supabase Auth
+    participant D as PostgreSQL
+
+    U->>W: Enter phone (+880)
+    W->>A: POST /api/v1/auth/otp/request
+    A->>S: Send OTP via Supabase
+    S-->>U: SMS with OTP code
+    A-->>W: 202 Pending
+    U->>W: Enter OTP
+    W->>A: POST /api/v1/auth/otp/verify
+    A->>S: Verify OTP
+    S-->>A: JWT access + refresh
+    A->>D: Upsert profile, load roles
+    D-->>A: Roles + permissions
+    A-->>W: 200 + httpOnly cookie (JWT)
+    W-->>U: Dashboard loaded
+    Note over U,D: Subsequent requests: cookie sent automatically<br/>NestJS guard verifies JWT + role per endpoint

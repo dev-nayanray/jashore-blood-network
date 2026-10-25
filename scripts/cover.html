@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    @page { size: 794px 1123px; margin: 0; }
+    :root {
+      /* From palette.cascade — Jashore Blood Network Architecture Plan */
+      --page-bg: #f7f7f6;
+      --section-bg: #f0efee;
+      --card-bg: #edebe7;
+      --table-stripe: #f4f3f1;
+      --header-fill: #5e563d;
+      --cover-block: #736c5a;
+      --border: #c1bbaa;
+      --icon: #8b7638;
+      --accent: #917520;
+      --accent-secondary: #61a5bb;
+      --text-primary: #20201d;
+      --text-muted: #8b8881;
+      /* cover aliases */
+      --c-bg: #f7f7f6;
+      --c-accent: #917520;
+      --c-text: #20201d;
+      --c-muted: #8b8881;
+      --c-mid: #5e563d;
+      --c-surface: #edebe7;
+    }
+    html, body {
+      margin: 0; padding: 0;
+      width: 794px; height: 1123px;
+      background: var(--c-bg);
+      color: var(--c-text);
+      font-family: 'Inter', sans-serif;
+    }
+    @media screen {
+      html { height: auto; display: flex; justify-content: center; min-height: 100vh; background: #e8e8e8; }
+      body { transform-origin: top center; scale: min(1, calc(100vw / 794), calc(100vh / 1123)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.15); }
+    }
+    .cover { width: 794px; height: 1123px; position: relative; box-sizing: border-box; }
+
+    /* Layer 1 — background grid (very faint) */
+    .layer-bg {
+      position: absolute; inset: 0; z-index: 1; overflow: hidden;
+      background-image:
+        linear-gradient(to right, rgba(94, 86, 61, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(94, 86, 61, 0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+
+    /* Layer 2 — structure: ultra-thick vertical anchor line at x=0.12*W */
+    .layer-struct { position: absolute; inset: 0; z-index: 2; }
+    .vline {
+      position: absolute;
+      left: 95px;           /* 0.12 * 794 = 95.28 */
+      top: 112px;           /* 0.10 * 1123 = 112.3 */
+      bottom: 112px;        /* 0.10 * 1123 */
+      width: 6px;
+      background: var(--c-mid);
+    }
+
+    /* Layer 3 — content */
+    .layer-content {
+      position: absolute; inset: 0; z-index: 3;
+    }
+    .kicker {
+      position: absolute;
+      left: 141px;          /* 95 + 6 + 30 = 131 */
+      top: 168px;           /* 0.15 * 1123 = 168.45 */
+      font-size: 11pt;
+      font-weight: 400;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--c-accent);
+      max-width: 540px;
+    }
+    .title {
+      position: absolute;
+      left: 141px;
+      top: 280px;           /* 0.25 * 1123 = 280.75 */
+      font-family: 'Playfair Display', serif;
+      font-size: 52pt;
+      font-weight: 900;
+      line-height: 1.05;
+      color: var(--c-text);
+      max-width: 560px;
+    }
+    .title .row1 { display: block; }
+    .title .row2 { display: block; color: var(--c-mid); }
+
+    .subtitle {
+      position: absolute;
+      left: 141px;
+      top: 480px;           /* below title */
+      font-size: 18pt;
+      font-weight: 400;
+      color: var(--c-text);
+      max-width: 540px;
+      letter-spacing: 0.5px;
+    }
+
+    .summary {
+      position: absolute;
+      left: 141px;
+      top: 560px;           /* 0.50 * 1123 = 561.5 */
+      font-size: 12pt;
+      font-weight: 400;
+      line-height: 1.65;
+      color: var(--text-primary);
+      opacity: 0.85;
+      max-width: 540px;
+    }
+
+    /* Stats row */
+    .stats {
+      position: absolute;
+      left: 141px;
+      top: 760px;           /* 0.68 * 1123 = 763.6 */
+      display: flex;
+      gap: 60px;
+      max-width: 580px;
+    }
+    .stat { }
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 32pt;
+      font-weight: 900;
+      color: var(--c-accent);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 9pt;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--c-muted);
+      margin-top: 6px;
+    }
+
+    /* Meta block */
+    .meta {
+      position: absolute;
+      left: 141px;
+      top: 900px;           /* 0.80 * 1123 = 898.4 */
+      font-size: 11pt;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 540px;
+    }
+    .meta strong {
+      color: var(--c-text);
+      font-weight: 600;
+    }
+
+    /* Footer */
+    .footer {
+      position: absolute;
+      left: 141px;
+      right: 56px;
+      bottom: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 9pt;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--c-muted);
+    }
+    .footer .doc-id {
+      color: var(--c-accent);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="layer-bg"></div>
+    <div class="layer-struct">
+      <div class="vline"></div>
+    </div>
+    <div class="layer-content">
+      <div class="kicker">ARCHITECTURE &amp; FOUNDATION PLAN &middot; PHASE 0&ndash;1</div>
+
+      <div class="title">
+        <span class="row1">Jashore</span>
+        <span class="row2">Blood Network</span>
+      </div>
+
+      <div class="subtitle">A district-wide donor coordination platform, scoped for a controlled pilot.</div>
+
+      <div class="summary">
+        This document presents the complete system architecture, database schema, API
+        specification, security assessment, deployment plan, and development roadmap for the
+        Jashore Blood Network. It is prepared for stakeholder review and explicit approval
+        before any application code is written or any infrastructure is provisioned.
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num">16</div>
+          <div class="stat-label">Deliverables</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">11</div>
+          <div class="stat-label">Phases</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">8</div>
+          <div class="stat-label">Upazilas</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">8</div>
+          <div class="stat-label">Roles</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <strong>Prepared by:</strong> Principal Architect &middot; Z.ai<br>
+        <strong>Scope:</strong> Workspace audit, architecture, security, deployment, roadmap<br>
+        <strong>Status:</strong> For review &middot; do not implement until approved<br>
+        <strong>Date:</strong> 26 October 2026
+      </div>
+
+      <div class="footer">
+        <span class="doc-id">JBN-ARCH-001</span>
+        <span>FOR STAKEHOLDER APPROVAL</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

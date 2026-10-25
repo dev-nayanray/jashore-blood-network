@@ -1,0 +1,26 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'FreeSerif, serif','fontSize':'14px','primaryColor':'#edebe7','primaryTextColor':'#20201d','primaryBorderColor':'#5e563d','lineColor':'#8b7638'}}}%%
+flowchart TB
+    classDef pub fill:#f7f7f6,stroke:#8b7638,stroke-width:1.2px,color:#20201d
+    classDef user fill:#f4f3f1,stroke:#5e563d,stroke-width:1.2px,color:#20201d
+    classDef donor fill:#edebe7,stroke:#5e563d,stroke-width:1.2px,color:#20201d
+    classDef coord fill:#e4ecf5,stroke:#5e563d,stroke-width:1.2px,color:#20201d
+    classDef mod fill:#f0efeb,stroke:#5e563d,stroke-width:1.2px,color:#20201d
+    classDef admin fill:#5e563d,stroke:#20201d,stroke-width:1.5px,color:#f7f7f6
+    classDef sup fill:#20201d,stroke:#917520,stroke-width:1.8px,color:#f7f7f6
+
+    PUB[Public Visitor<br/>Browse only]:::pub
+    REG[Registered User<br/>Submit requests]:::user
+    DON[Blood Donor<br/>Manage own profile<br/>Respond to requests]:::donor
+    VOL[Volunteer Coordinator<br/>Verify requests<br/>No PII edit]:::coord
+    HOS[Hospital / Blood Bank Rep<br/>Manage own facility<br/>Submit verified requests]:::coord
+    MOD[Moderator<br/>Review abuse reports<br/>Hide content]:::mod
+    ADM[District Administrator<br/>Jashore scope<br/>Verify hospitals<br/>Manage roles]:::admin
+    SUP[Super Administrator<br/>Platform-wide<br/>Audit logs access]:::sup
+
+    PUB --> REG
+    REG --> DON
+    REG --> HOS
+    REG -.appointed.-> VOL
+    REG -.appointed.-> MOD
+    MOD -.promoted.-> ADM
+    ADM -.promoted.-> SUP
