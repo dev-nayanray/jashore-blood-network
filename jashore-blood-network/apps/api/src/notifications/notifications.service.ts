@@ -509,6 +509,49 @@ export class NotificationsService {
       maxAlertsPerDay: p.maxAlertsPerDay,
     };
   }
+
+  // -------------------------------------------------------------------------
+  // Phase 13: Emergency notification cancellation
+  // -------------------------------------------------------------------------
+
+  /**
+   * Cancel pending notifications for a blood request.
+   * Called when a request is CANCELLED, COMPLETED, EXPIRED, or REJECTED.
+   *
+   * Marks all unread REQUEST_MATCH notifications for the request as read
+   * with a "cancelled" metadata flag. Does NOT delete notifications —
+   * they remain in the donor's inbox as read (so the donor knows the
+   * request is no longer active), but the "cancelled" flag prevents
+   * any pending email delivery from being sent.
+   *
+   * @param requestId The blood request ID
+   * @param reason Why notifications are being cancelled
+   */
+  async cancelPendingNotifications(
+    requestId: string,
+    reason: string,
+  ): Promise<{ cancelled: number }> {
+    // Mark all unread REQUEST_MATCH notifications for this request as read
+    const result = await this.prisma.notification.updateMany({
+      where: {
+        type: 'REQUEST_MATCH' as never,
+        relatedType: 'blood_request',
+        relatedId: requestId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+        metadata: { cancelledReason: reason, cancelledAt: new Date().toISOString() } as never,
+      },
+    });
+
+    this.logger.log(
+      `Cancelled ${result.count} pending notifications for request ${requestId} (${reason})`,
+    );
+
+    return { cancelled: result.count };
+  }
 }
 
 // ---------------------------------------------------------------------------

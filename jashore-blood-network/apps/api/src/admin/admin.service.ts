@@ -581,6 +581,68 @@ export class AdminService {
       deletedAt: u.deletedAt?.toISOString() ?? null,
     };
   }
+
+  // -------------------------------------------------------------------------
+  // Phase 13: Emergency coordination
+  // -------------------------------------------------------------------------
+
+  /**
+   * List urgent requests for emergency coordination dashboard.
+   * Returns active URGENT requests with age, notification count, and status.
+   * Only active statuses (PENDING, VERIFIED, SEARCHING, DONOR_RESPONDED, ARRANGED).
+   */
+  async listEmergencyRequests(): Promise<EmergencyRequestItem[]> {
+    const requests = await this.prisma.bloodRequest.findMany({
+      where: {
+        urgency: 'URGENT' as never,
+        deletedAt: null,
+        status: { in: ['PENDING', 'VERIFIED', 'SEARCHING', 'DONOR_RESPONDED', 'ARRANGED'] as never },
+      },
+      orderBy: [
+        { status: 'asc' }, // PENDING first (needs attention)
+        { createdAt: 'desc' }, // Newest first
+      ],
+      take: 50,
+      include: {
+        requester: { select: { fullName: true } },
+        upazila: { select: { name: true } },
+      },
+    });
+
+    // Get notification counts for each request
+    const requestIds = requests.map((r) => r.id);
+    const notificationCounts = await this.prisma.notification.groupBy({
+      by: ['relatedId'],
+      where: {
+        type: 'REQUEST_MATCH' as never,
+        relatedType: 'blood_request',
+        relatedId: { in: requestIds },
+      },
+      _count: { _all: true },
+    });
+
+    const countMap = new Map(
+      notificationCounts.map((n) => [n.relatedId, n._count._all]),
+    );
+
+    const now = Date.now();
+    return requests.map((r) => ({
+      id: r.id,
+      requesterName: r.requester.fullName,
+      patientDisplayName: r.patientDisplayName,
+      bloodGroup: r.bloodGroup,
+      unitsRequested: r.unitsRequested,
+      upazilaName: r.upazila?.name ?? 'Unknown',
+      hospitalName: r.hospitalName,
+      requiredBy: r.requiredBy.toISOString(),
+      urgency: r.urgency,
+      status: r.status,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      ageMinutes: Math.floor((now - r.createdAt.getTime()) / 60000),
+      notificationCount: countMap.get(r.id) ?? 0,
+    }));
+  }
 }
 
 // Role level mapping for privilege escalation prevention
@@ -594,3 +656,23 @@ const ROLE_LEVELS: Record<AssignableRole, number> = {
   DISTRICT_ADMINISTRATOR: 5,
   SUPER_ADMINISTRATOR: 6,
 };
+
+// Phase 13: extend AdminService with emergency coordination
+
+export interface EmergencyRequestItem {
+  id: string;
+  requesterName: string;
+  patientDisplayName: string | null;
+  bloodGroup: string;
+  unitsRequested: number;
+  upazilaName: string;
+  hospitalName: string | null;
+  requiredBy: string;
+  urgency: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  ageMinutes: number;
+  notificationCount: number;
+}
+

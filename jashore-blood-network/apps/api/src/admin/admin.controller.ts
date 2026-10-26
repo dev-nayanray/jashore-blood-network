@@ -45,6 +45,13 @@ export class AdminController {
     return this.adminService.getAnalytics();
   }
 
+  // --- Phase 13: Emergency coordination ---
+
+  @Get('emergency')
+  async listEmergencyRequests() {
+    return this.adminService.listEmergencyRequests();
+  }
+
   // --- User management ---
 
   @Get('users')

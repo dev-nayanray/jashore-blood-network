@@ -490,6 +490,19 @@ export class BloodRequestsService {
       return this.toDetail(refreshed, isOwner);
     }
 
+    // Phase 13: Cancel pending notifications when request is cancelled/completed/expired/rejected
+    if (['CANCELLED', 'COMPLETED', 'EXPIRED', 'REJECTED'].includes(newStatus)) {
+      if (this.notificationsService) {
+        void this.notificationsService
+          .cancelPendingNotifications(id, `Request ${newStatus.toLowerCase()}`)
+          .catch((err) => {
+            this.logger.error(
+              `Failed to cancel notifications for request ${id}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
+    }
+
     return this.toDetail(updated, isOwner);
   }
 
