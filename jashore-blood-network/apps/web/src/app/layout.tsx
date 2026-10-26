@@ -11,11 +11,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Jashore Blood Network',
+    default: 'Jashore Blood Network — Connecting Donors with Patients',
     template: '%s | Jashore Blood Network',
   },
   description:
-    'A district-wide blood donor discovery and blood request coordination platform for Jashore District, Bangladesh.',
+    'A district-wide blood donor coordination platform for Jashore District, Bangladesh. Find consenting blood donors, submit verifiable blood requests, and connect with healthcare facilities.',
   applicationName: 'Jashore Blood Network',
   authors: [{ name: 'Jashore Blood Network' }],
   keywords: [
@@ -24,11 +24,34 @@ export const metadata: Metadata = {
     'Bangladesh',
     'blood request',
     'donor coordination',
+    'blood donation',
+    'Jashore Sadar',
+    'Abhaynagar',
+    'Bagherpara',
+    'Chaugachha',
+    'Jhikargachha',
+    'Keshabpur',
+    'Manirampur',
+    'Sharsha',
   ],
   formatDetection: {
     telephone: true,
     address: false,
     email: false,
+  },
+  openGraph: {
+    title: 'Jashore Blood Network',
+    description:
+      'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'Jashore Blood Network',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Jashore Blood Network',
+    description:
+      'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
   },
 };
 

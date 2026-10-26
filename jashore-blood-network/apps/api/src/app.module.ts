@@ -11,6 +11,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DonorVerificationModule } from './donor-verification/donor-verification.module';
 import { ModerationModule } from './moderation/moderation.module';
 import { AdminModule } from './admin/admin.module';
+import { PublicModule } from './public/public.module';
 import { LocationsModule } from './locations/locations.module';
 
 @Module({
@@ -44,6 +45,7 @@ import { LocationsModule } from './locations/locations.module';
     DonorVerificationModule,
     ModerationModule,
     AdminModule,
+    PublicModule,
     HealthModule,
   ],
 })
