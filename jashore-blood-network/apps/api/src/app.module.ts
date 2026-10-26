@@ -12,6 +12,7 @@ import { DonorVerificationModule } from './donor-verification/donor-verification
 import { ModerationModule } from './moderation/moderation.module';
 import { AdminModule } from './admin/admin.module';
 import { PublicModule } from './public/public.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { LocationsModule } from './locations/locations.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { LocationsModule } from './locations/locations.module';
     ModerationModule,
     AdminModule,
     PublicModule,
+    OrganizationsModule,
     HealthModule,
   ],
 })

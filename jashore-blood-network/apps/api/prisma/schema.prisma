@@ -127,13 +127,28 @@ enum ResponseStatus {
 
 enum VerificationStatus {
   UNVERIFIED
+  DRAFT
+  PENDING_REVIEW
   VERIFIED
   REJECTED
+  SUSPENDED
 }
 
 enum FacilityType {
   HOSPITAL
   BLOOD_BANK
+}
+
+enum OrganizationMemberRole {
+  OWNER
+  STAFF
+}
+
+enum OrganizationCoordinationStatus {
+  NOTIFIED
+  RESPONDED
+  COORDINATING
+  UNABLE_TO_HELP
 }
 
 enum NotificationChannel {
@@ -213,6 +228,12 @@ model Profile {
   requestsVerified          BloodRequest[]   @relation("RequestVerifier")
   rolesGranted              UserRole[]       @relation("RoleGrantedBy")
   facilityVerifications     FacilityVerification[]
+  // Phase 11: organization membership + coordination
+  organizationMemberships   OrganizationMember[]
+  orgMemberInvitations      OrganizationMember[] @relation("OrgMemberInviter")
+  orgMemberRemovals         OrganizationMember[] @relation("OrgMemberRemover")
+  organizationVerificationReviews OrganizationVerificationReview[]
+  organizationCoordinationUpdates OrganizationCoordination[]
 
   @@map("profiles")
   @@index([phone])
@@ -375,6 +396,7 @@ model BloodRequest {
   hospital            Hospital?       @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
   verifier            Profile?        @relation("RequestVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
   responses           RequestResponse[]
+  organizationCoordination OrganizationCoordination[]
 
   @@map("blood_requests")
   @@index([status, bloodGroup, upazilaId], map: "blood_requests_donor_match_idx")
@@ -413,10 +435,20 @@ model Hospital {
   upazilaId          String             @map("upazila_id") @db.Uuid
   address            String             @db.Text
   phone              String?            @db.VarChar(30)
+  email              String?            @db.VarChar(255)
+  website            String?            @db.VarChar(255)
   operatingHours     String?            @map("operating_hours") @db.Text
   servicesOffered    String?            @map("services_offered") @db.Text
   verificationStatus VerificationStatus @default(UNVERIFIED) @map("verification_status")
   representedBy      String?            @map("represented_by") @db.Uuid
+  // Phase 11: organization verification feedback
+  verificationFeedback String?          @map("verification_feedback") @db.Text
+  verificationReviewedAt DateTime?      @map("verification_reviewed_at")
+  verificationReviewedBy String?        @map("verification_reviewed_by") @db.Uuid
+  verificationRequestedAt DateTime?     @map("verification_requested_at")
+  suspendedAt        DateTime?          @map("suspended_at")
+  suspendedBy        String?            @map("suspended_by") @db.Uuid
+  suspensionReason   String?            @map("suspension_reason") @db.Text
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
   deletedAt          DateTime?          @map("deleted_at")
@@ -426,6 +458,9 @@ model Hospital {
   bloodRequests      BloodRequest[]
   bloodBanks         BloodBank[]
   verifications      FacilityVerification[] @relation("HospitalVerifications")
+  members            OrganizationMember[]
+  coordinationRecords OrganizationCoordination[]
+  verificationReviews OrganizationVerificationReview[]
 
   @@map("hospitals")
   @@index([upazilaId, verificationStatus])
@@ -472,6 +507,78 @@ model FacilityVerification {
   @@index([facilityType, status, createdAt(sort: Desc)])
   @@index([hospitalId])
   @@index([bloodBankId])
+}
+
+// =============================================================================
+// ORGANIZATION MEMBERSHIP (Phase 11)
+// =============================================================================
+
+model OrganizationMember {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId  String                @map("hospital_id") @db.Uuid
+  profileId   String                @map("profile_id") @db.Uuid
+  role        OrganizationMemberRole @default(STAFF)
+  invitedBy   String?               @map("invited_by") @db.Uuid
+  joinedAt    DateTime              @default(now()) @map("joined_at")
+  removedAt   DateTime?             @map("removed_at")
+  removedBy   String?               @map("removed_by") @db.Uuid
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  hospital    Hospital              @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  profile     Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  inviter     Profile?              @relation("OrgMemberInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
+  remover     Profile?              @relation("OrgMemberRemover", fields: [removedBy], references: [id], onDelete: SetNull)
+
+  @@unique([hospitalId, profileId, removedAt], map: "org_members_active_unique")
+  @@map("organization_members")
+  @@index([hospitalId, removedAt])
+  @@index([profileId, removedAt])
+}
+
+// =============================================================================
+// ORGANIZATION VERIFICATION REVIEWS (append-only audit trail)
+// =============================================================================
+
+model OrganizationVerificationReview {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId      String             @map("hospital_id") @db.Uuid
+  reviewerId      String             @map("reviewer_id") @db.Uuid
+  previousStatus  VerificationStatus @map("previous_status")
+  newStatus       VerificationStatus @map("new_status")
+  reason          String?            @db.Text
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  hospital        Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  reviewer        Profile            @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@map("organization_verification_reviews")
+  @@index([hospitalId, createdAt(sort: Desc)])
+  @@index([reviewerId, createdAt(sort: Desc)])
+}
+
+// =============================================================================
+// ORGANIZATION COORDINATION RECORDS (org-specific blood request responses)
+// =============================================================================
+
+model OrganizationCoordination {
+  id              String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId      String                       @map("hospital_id") @db.Uuid
+  bloodRequestId  String                       @map("blood_request_id") @db.Uuid
+  status          OrganizationCoordinationStatus @default(NOTIFIED)
+  note            String?                      @db.Text
+  updatedBy       String                       @map("updated_by") @db.Uuid
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+
+  hospital        Hospital                     @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  bloodRequest    BloodRequest                 @relation(fields: [bloodRequestId], references: [id], onDelete: Cascade)
+  updater         Profile                      @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@unique([hospitalId, bloodRequestId], map: "org_coordination_unique")
+  @@map("organization_coordination")
+  @@index([hospitalId, status])
+  @@index([bloodRequestId])
 }
 
 // =============================================================================
