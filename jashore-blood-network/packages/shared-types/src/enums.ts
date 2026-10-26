@@ -33,6 +33,45 @@ export const JASHORE_UPAZILAS = Object.freeze([
 export type JashoreUpazila = (typeof JASHORE_UPAZILAS)[number];
 
 /**
+ * The eight ISO blood groups.
+ *
+ * MUST match the `BloodGroup` enum in `apps/api/prisma/schema.prisma`
+ * exactly. A unit test in `apps/api/test/database.foundation.spec.ts`
+ * verifies this.
+ *
+ * CRITICAL: a matching blood group is only a preliminary search filter.
+ * Never claim that a donor is medically eligible or clinically compatible.
+ * Qualified medical personnel and the receiving facility must determine
+ * eligibility, compatibility, and appropriate donation procedures.
+ */
+export const BLOOD_GROUPS = Object.freeze([
+  'A_POSITIVE',
+  'A_NEGATIVE',
+  'B_POSITIVE',
+  'B_NEGATIVE',
+  'AB_POSITIVE',
+  'AB_NEGATIVE',
+  'O_POSITIVE',
+  'O_NEGATIVE',
+] as const);
+
+export type BloodGroup = (typeof BLOOD_GROUPS)[number];
+
+/**
+ * Human-readable labels for blood groups (for UI display).
+ */
+export const BLOOD_GROUP_LABELS: Readonly<Record<BloodGroup, string>> = Object.freeze({
+  A_POSITIVE: 'A+',
+  A_NEGATIVE: 'A-',
+  B_POSITIVE: 'B+',
+  B_NEGATIVE: 'B-',
+  AB_POSITIVE: 'AB+',
+  AB_NEGATIVE: 'AB-',
+  O_POSITIVE: 'O+',
+  O_NEGATIVE: 'O-',
+});
+
+/**
  * The eight user roles.
  *
  * `PUBLIC_VISITOR` is implicit (anyone without an account) and is NOT

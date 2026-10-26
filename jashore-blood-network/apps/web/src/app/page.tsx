@@ -4,29 +4,29 @@ import Link from 'next/link';
 import { useAuth } from '@/features/auth/auth-provider';
 
 /**
- * Phase 4 landing page.
+ * Phase 5 landing page.
  *
  * Phase 2: mobile-first, accessible layout, four primary CTAs (disabled placeholders).
  * Phase 4: header now shows login/account link based on auth state via useAuth().
+ * Phase 5: Find Blood and Become a Donor CTAs are now ENABLED — they link to
+ * the donor search and donor registration pages respectively.
  *
- * The four primary CTAs (Find Blood, Become a Donor, Request Blood, Find a
- * Hospital) remain disabled placeholders until Phase 5+.
- *
- * Real homepage content lands in Phase 5 (Donor Registration and Search).
+ * The Request Blood and Find a Hospital CTAs remain disabled placeholders
+ * until Phase 6+.
  */
 
 const PRIMARY_CTAS = [
   {
     label: 'Find Blood',
     description: 'Search for available donors by blood group and upazila.',
-    href: '/find-blood',
-    disabled: true,
+    href: '/donors/search',
+    disabled: false,
   },
   {
     label: 'Become a Donor',
     description: 'Register as a blood donor and help your community.',
-    href: '/donor-registration',
-    disabled: true,
+    href: '/donors/register',
+    disabled: false,
   },
   {
     label: 'Request Blood',
@@ -143,26 +143,43 @@ export default function HomePage() {
             What would you like to do?
           </h2>
           <p className="mb-6 text-sm text-neutral-600">
-            These features will be available once the pilot launches. The
-            buttons below are placeholders.
+            Find blood donors in Jashore District, or register as a donor to help your community.
+            Blood request and hospital directory features are coming soon.
           </p>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {PRIMARY_CTAS.map((cta) => (
               <li key={cta.label}>
-                <div
-                  aria-disabled={cta.disabled}
-                  className="flex h-full flex-col rounded-lg border border-neutral-200 bg-white p-5 transition hover:border-neutral-300 hover:shadow-sm"
-                >
-                  <span className="text-base font-semibold text-neutral-900">
-                    {cta.label}
-                  </span>
-                  <span className="mt-1 flex-1 text-sm text-neutral-600">
-                    {cta.description}
-                  </span>
-                  <span className="mt-4 inline-flex items-center text-xs font-medium uppercase tracking-wide text-neutral-400">
-                    Coming soon
-                  </span>
-                </div>
+                {cta.disabled ? (
+                  <div
+                    aria-disabled={cta.disabled}
+                    className="flex h-full flex-col rounded-lg border border-neutral-200 bg-white p-5 transition hover:border-neutral-300 hover:shadow-sm"
+                  >
+                    <span className="text-base font-semibold text-neutral-900">
+                      {cta.label}
+                    </span>
+                    <span className="mt-1 flex-1 text-sm text-neutral-600">
+                      {cta.description}
+                    </span>
+                    <span className="mt-4 inline-flex items-center text-xs font-medium uppercase tracking-wide text-neutral-400">
+                      Coming soon
+                    </span>
+                  </div>
+                ) : (
+                  <Link
+                    href={cta.href}
+                    className="flex h-full flex-col rounded-lg border border-brand-200 bg-brand-50 p-5 transition hover:border-brand-300 hover:shadow-sm"
+                  >
+                    <span className="text-base font-semibold text-brand-700">
+                      {cta.label}
+                    </span>
+                    <span className="mt-1 flex-1 text-sm text-neutral-700">
+                      {cta.description}
+                    </span>
+                    <span className="mt-4 inline-flex items-center text-xs font-medium uppercase tracking-wide text-brand-600">
+                      Get started →
+                    </span>
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

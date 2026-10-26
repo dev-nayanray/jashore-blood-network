@@ -5,6 +5,8 @@ import { HealthModule } from './health/health.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { DonorsModule } from './donors/donors.module';
+import { LocationsModule } from './locations/locations.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { UsersModule } from './users/users.module';
     DatabaseModule,
     AuthModule,
     UsersModule,
+    LocationsModule,
+    DonorsModule,
     HealthModule,
   ],
 })

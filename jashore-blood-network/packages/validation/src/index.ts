@@ -29,3 +29,12 @@ export {
   type OtpVerifyInput,
   type UpdateProfileInput,
 } from './auth';
+
+export {
+  createDonorProfileSchema,
+  updateDonorProfileSchema,
+  searchDonorsSchema,
+  type CreateDonorProfileInput,
+  type UpdateDonorProfileInput,
+  type SearchDonorsInput,
+} from './donors';
