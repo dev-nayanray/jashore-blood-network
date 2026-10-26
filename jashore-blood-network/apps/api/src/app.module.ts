@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DonorsModule } from './donors/donors.module';
 import { BloodRequestsModule } from './blood-requests/blood-requests.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { LocationsModule } from './locations/locations.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { LocationsModule } from './locations/locations.module';
     LocationsModule,
     DonorsModule,
     BloodRequestsModule,
+    NotificationsModule,
     HealthModule,
   ],
 })

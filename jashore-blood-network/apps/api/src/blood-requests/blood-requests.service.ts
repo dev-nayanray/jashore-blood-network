@@ -30,8 +30,10 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '../lib/prisma';
+import { NotificationsService } from '../notifications/notifications.service';
 import type {
   CreateBloodRequestInput,
   UpdateBloodRequestInput,
@@ -102,7 +104,10 @@ export interface BloodRequestListResponse {
 export class BloodRequestsService {
   private readonly logger = new Logger(BloodRequestsService.name);
 
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    @Optional() private readonly notificationsService?: NotificationsService,
+  ) {}
 
   // -------------------------------------------------------------------------
   // Create
@@ -421,12 +426,35 @@ export class BloodRequestsService {
     });
 
     // Auto-transition VERIFIED -> SEARCHING (the request is now publicly visible)
+    // AND trigger donor matching notifications
     if (newStatus === 'VERIFIED') {
       const refreshed = await this.prisma.bloodRequest.update({
         where: { id },
         data: { status: 'SEARCHING' as never },
         include: { upazila: { select: { id: true, name: true } } },
       });
+
+      // Trigger donor matching (async, non-blocking — failures are logged but don't block)
+      if (this.notificationsService) {
+        void this.notificationsService
+          .notifyMatchingDonors(
+            id,
+            refreshed.bloodGroup as never,
+            refreshed.upazilaId,
+            refreshed.urgency,
+            refreshed.patientDisplayName,
+            refreshed.hospitalName,
+          )
+          .then((count) => {
+            this.logger.log(`Notified ${count} donors for request ${id}`);
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Donor matching failed for request ${id}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
+
       return this.toDetail(refreshed, isOwner);
     }
 

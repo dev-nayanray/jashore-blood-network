@@ -462,27 +462,62 @@ model Notification {
   metadata     Json             @default("{}")
   relatedType  String?          @map("related_type") @db.VarChar(60)
   relatedId    String?          @map("related_id") @db.Uuid
+  // Idempotency key: prevents duplicate notifications for the same
+  // (recipient, type, related) combination. Format: `${type}:${relatedId}`
+  idempotencyKey String?        @map("idempotency_key") @db.VarChar(255)
   createdAt    DateTime         @default(now()) @map("created_at")
 
   recipient    Profile          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  deliveryAttempts NotificationDeliveryAttempt[]
 
+  @@unique([idempotencyKey], map: "notifications_idempotency_key_unique")
   @@map("notifications")
   @@index([recipientId, isRead, createdAt(sort: Desc)], map: "notifications_inbox_idx")
   @@index([recipientId, createdAt(sort: Desc)])
+  @@index([relatedType, relatedId])
 }
 
 model NotificationPreference {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  profileId       String   @unique @map("profile_id") @db.Uuid
-  inAppEnabled    Boolean  @default(true) @map("in_app_enabled")
-  emailEnabled    Boolean  @default(false) @map("email_enabled")
-  smsEnabled      Boolean  @default(false) @map("sms_enabled")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId           String   @unique @map("profile_id") @db.Uuid
+  inAppEnabled        Boolean  @default(true) @map("in_app_enabled")
+  emailEnabled        Boolean  @default(false) @map("email_enabled")
+  smsEnabled          Boolean  @default(false) @map("sms_enabled")
+  // Donor-specific alert preferences
+  bloodRequestAlertsEnabled Boolean @default(true) @map("blood_request_alerts_enabled")
+  preferredBloodGroups String[] @default([]) @map("preferred_blood_groups")
+  quietHoursStart     Int?     @map("quiet_hours_start") // 0-23 (hour of day, UTC)
+  quietHoursEnd       Int?     @map("quiet_hours_end")   // 0-23
+  maxAlertsPerDay     Int      @default(10) @map("max_alerts_per_day")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
+}
+
+// =============================================================================
+// NOTIFICATION DELIVERY ATTEMPTS (idempotency + delivery tracking)
+// =============================================================================
+
+model NotificationDeliveryAttempt {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId  String   @map("notification_id") @db.Uuid
+  recipientId     String   @map("recipient_id") @db.Uuid
+  channel         NotificationChannel
+  status          String   @db.VarChar(20) // PENDING, SENT, FAILED, DELIVERED
+  providerMessageId String? @map("provider_message_id") @db.VarChar(255)
+  error           String?  @db.Text
+  attemptedAt     DateTime @default(now()) @map("attempted_at")
+  deliveredAt     DateTime? @map("delivered_at")
+
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_delivery_attempts")
+  @@index([notificationId])
+  @@index([recipientId, channel, attemptedAt(sort: Desc)])
+  @@index([status, attemptedAt])
 }
 
 // =============================================================================

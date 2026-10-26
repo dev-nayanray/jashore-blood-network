@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/features/auth/auth-provider';
+import { NotificationBell } from '@/features/notifications/notification-bell';
 
 /**
  * Phase 5 landing page.
@@ -81,9 +82,12 @@ export default function HomePage() {
                 {loading ? (
                   <span className="text-neutral-400">…</span>
                 ) : user ? (
-                  <Link href="/logout" className="hover:text-neutral-900">
-                    Logout ({user.fullName})
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <NotificationBell />
+                    <Link href="/logout" className="hover:text-neutral-900">
+                      Logout ({user.fullName})
+                    </Link>
+                  </div>
                 ) : (
                   <Link href="/login" className="hover:text-neutral-900">
                     Login
