@@ -1,7 +1,8 @@
 /**
  * Notification bell — shows unread count and dropdown panel.
  *
- * Polls /api/v1/notifications/unread-count every 60 seconds.
+ * Uses Supabase Realtime for instant updates + polls every 120 seconds
+ * as a fallback when real-time is unavailable or disconnected.
  * Clicking the bell opens a dropdown with the latest 5 notifications.
  */
 
@@ -17,6 +18,7 @@ import {
   type NotificationDto,
 } from '@/features/notifications/api';
 import { useAuth } from '@/features/auth/auth-provider';
+import { useRealtimeNotifications } from '@/features/realtime/realtime-hooks';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -47,9 +49,14 @@ export function NotificationBell() {
     }
   }, [user]);
 
+  // Subscribe to real-time notification inserts
+  // Falls back to polling when real-time is unavailable
+  const realtimeStatus = useRealtimeNotifications(user?.id ?? null, refreshUnread);
+
   useEffect(() => {
     void refreshUnread();
-    const interval = setInterval(refreshUnread, 60_000);
+    // Poll every 120s as fallback (reduced from 60s since real-time covers most cases)
+    const interval = setInterval(refreshUnread, 120_000);
     return () => clearInterval(interval);
   }, [refreshUnread]);
 

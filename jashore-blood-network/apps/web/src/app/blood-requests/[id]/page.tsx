@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BLOOD_GROUP_LABELS } from '@jbn/shared-types';
@@ -10,6 +10,7 @@ import {
   type BloodRequestDetail,
 } from '@/features/blood-requests/api';
 import { useAuth } from '@/features/auth/auth-provider';
+import { useRealtimeRequest, ConnectionStatusIndicator } from '@/features/realtime/realtime-hooks';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pending verification',
@@ -49,6 +50,19 @@ export default function BloodRequestDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  // Refetch the request when a real-time update is detected
+  const refetchRequest = useCallback(async () => {
+    try {
+      const r = await fetchBloodRequest(id);
+      setRequest(r);
+    } catch {
+      // If refetch fails (e.g. request deleted), keep existing data
+    }
+  }, [id]);
+
+  // Subscribe to real-time updates for this request
+  const connectionStatus = useRealtimeRequest(id, refetchRequest);
 
   useEffect(() => {
     void (async () => {
@@ -107,6 +121,7 @@ export default function BloodRequestDetailPage() {
             <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
               {URGENCY_LABELS[request.urgency] ?? request.urgency}
             </span>
+            <ConnectionStatusIndicator status={connectionStatus} />
           </div>
         </div>
 
