@@ -81,6 +81,25 @@ enum RequestStatus {
   REJECTED
 }
 
+enum UrgencyLevel {
+  URGENT
+  NORMAL
+  FLEXIBLE
+}
+
+enum BloodComponent {
+  WHOLE_BLOOD
+  PLASMA
+  PLATELETS
+  RED_BLOOD_CELLS
+}
+
+enum ContactMethod {
+  PHONE
+  EMAIL
+  IN_APP
+}
+
 enum ResponseStatus {
   PENDING
   ACCEPTED
@@ -298,36 +317,43 @@ model DonorProfile {
 // =============================================================================
 
 model BloodRequest {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requesterId       String        @map("requester_id") @db.Uuid
-  bloodGroup        BloodGroup    @map("blood_group")
-  unitsRequested    Int           @map("units_requested") @db.SmallInt
-  upazilaId         String        @map("upazila_id") @db.Uuid
-  hospitalId        String?       @map("hospital_id") @db.Uuid
-  requiredBy        DateTime      @map("required_by")
-  status            RequestStatus @default(PENDING)
-  expiresAt         DateTime      @map("expires_at")
-  verificationNote  String?       @map("verification_note") @db.Text
-  verifiedBy        String?       @map("verified_by") @db.Uuid
-  verifiedAt        DateTime?     @map("verified_at")
-  cancelledAt       DateTime?     @map("cancelled_at")
-  cancellationReason String?      @map("cancellation_reason") @db.Text
-  contactNote       String?       @map("contact_note") @db.Text
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  deletedAt         DateTime?     @map("deleted_at")
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId         String          @map("requester_id") @db.Uuid
+  patientDisplayName  String?         @map("patient_display_name") @db.VarChar(120)
+  bloodGroup          BloodGroup      @map("blood_group")
+  bloodComponent      BloodComponent? @map("blood_component")
+  unitsRequested      Int             @map("units_requested") @db.SmallInt
+  upazilaId           String          @map("upazila_id") @db.Uuid
+  hospitalId          String?         @map("hospital_id") @db.Uuid
+  hospitalName        String?         @map("hospital_name") @db.VarChar(180)
+  requiredBy          DateTime        @map("required_by")
+  urgency             UrgencyLevel    @default(NORMAL)
+  contactMethod       ContactMethod   @default(IN_APP) @map("contact_method")
+  contactNote         String?         @map("contact_note") @db.Text
+  notes               String?         @db.Text
+  status              RequestStatus   @default(PENDING)
+  expiresAt           DateTime        @map("expires_at")
+  verificationNote    String?         @map("verification_note") @db.Text
+  verifiedBy          String?         @map("verified_by") @db.Uuid
+  verifiedAt          DateTime?       @map("verified_at")
+  cancelledAt         DateTime?       @map("cancelled_at")
+  cancellationReason  String?         @map("cancellation_reason") @db.Text
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+  deletedAt           DateTime?       @map("deleted_at")
 
-  requester         Profile       @relation("RequesterProfile", fields: [requesterId], references: [id], onDelete: Cascade)
-  upazila           Upazila       @relation(fields: [upazilaId], references: [id], onDelete: Restrict)
-  hospital          Hospital?     @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
-  verifier          Profile?      @relation("RequestVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
-  responses         RequestResponse[]
+  requester           Profile         @relation("RequesterProfile", fields: [requesterId], references: [id], onDelete: Cascade)
+  upazila             Upazila         @relation(fields: [upazilaId], references: [id], onDelete: Restrict)
+  hospital            Hospital?       @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+  verifier            Profile?        @relation("RequestVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+  responses           RequestResponse[]
 
   @@map("blood_requests")
   @@index([status, bloodGroup, upazilaId], map: "blood_requests_donor_match_idx")
   @@index([requesterId, createdAt(sort: Desc)], map: "blood_requests_my_requests_idx")
   @@index([status, expiresAt], map: "blood_requests_expiring_idx")
   @@index([upazilaId, status])
+  @@index([urgency, status, createdAt(sort: Desc)], map: "blood_requests_urgency_idx")
 }
 
 model RequestResponse {

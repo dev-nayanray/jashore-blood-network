@@ -38,3 +38,14 @@ export {
   type UpdateDonorProfileInput,
   type SearchDonorsInput,
 } from './donors';
+
+export {
+  createBloodRequestSchema,
+  updateBloodRequestSchema,
+  updateRequestStatusSchema,
+  searchBloodRequestsSchema,
+  type CreateBloodRequestInput,
+  type UpdateBloodRequestInput,
+  type UpdateRequestStatusInput,
+  type SearchBloodRequestsInput,
+} from './blood-requests';
