@@ -25,9 +25,9 @@
  *   - End-to-end HTTP flow
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Reflector } from '@nestjs/core';
-import { ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { describe, it, expect, vi } from 'vitest';
+import { type Reflector } from '@nestjs/core';
+import { type ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/guards/roles.guard';
 import { IsOwnerPolicy } from '../src/auth/policies/is-owner.policy';
@@ -69,14 +69,18 @@ function createMockExecutionContext(overrides: Partial<{
 }> = {}): ExecutionContext {
   const handler = overrides.handler ?? (() => {});
   const cls = overrides.class ?? class MockClass {};
+  // Create the request object ONCE so mutations (e.g. attaching
+  // authenticatedUser) persist across multiple getRequest() calls.
+  const request = {
+    cookies: overrides.cookies ?? {},
+    headers: overrides.headers ?? {},
+    params: overrides.params ?? {},
+  };
   return {
     switchToHttp: () => ({
-      getRequest: () => ({
-        cookies: overrides.cookies ?? {},
-        headers: overrides.headers ?? {},
-        params: overrides.params ?? {},
-      }),
+      getRequest: () => request,
       getResponse: () => ({}),
+      getNext: () => undefined,
     }),
     getHandler: () => handler,
     getClass: () => cls as never,
@@ -85,7 +89,7 @@ function createMockExecutionContext(overrides: Partial<{
     getType: () => 'http',
     switchToRpc: () => ({}) as never,
     switchToWs: () => ({}) as never,
-  } as ExecutionContext;
+  } as unknown as ExecutionContext;
 }
 
 // A reflector that returns the metadata we want for each test
@@ -206,23 +210,12 @@ describe('JwtAuthGuard', () => {
     const reflector = createMockReflector({});
     guard = new JwtAuthGuard(reflector, supabase as never, prisma as never);
 
-    const request: { [k: string]: unknown } = {
+    const ctx = createMockExecutionContext({
       cookies: { jbn_access_token: 'valid-token' },
-      headers: {},
-      params: {},
-    };
-    const ctx: ExecutionContext = {
-      switchToHttp: () => ({ getRequest: () => request, getResponse: () => ({}) }),
-      getHandler: () => () => {},
-      getClass: () => class {},
-      getArgs: () => [],
-      getArgByIndex: () => undefined,
-      getType: () => 'http',
-      switchToRpc: () => ({}) as never,
-      switchToWs: () => ({}) as never,
-    } as ExecutionContext;
+    });
 
     expect(await guard.canActivate(ctx)).toBe(true);
+    const request = ctx.switchToHttp().getRequest() as { [k: string]: unknown };
     const attached = request[CURRENT_USER_KEY] as AuthenticatedUser;
     expect(attached.id).toBe(USER_A.id);
     expect(attached.roles).toContain('REGISTERED_USER');
@@ -242,23 +235,12 @@ describe('JwtAuthGuard', () => {
     const reflector = createMockReflector({});
     guard = new JwtAuthGuard(reflector, supabase as never, prisma as never);
 
-    const request: { [k: string]: unknown } = {
+    const ctx = createMockExecutionContext({
       cookies: { jbn_access_token: 'valid-token' },
-      headers: {},
-      params: {},
-    };
-    const ctx: ExecutionContext = {
-      switchToHttp: () => ({ getRequest: () => request, getResponse: () => ({}) }),
-      getHandler: () => () => {},
-      getClass: () => class {},
-      getArgs: () => [],
-      getArgByIndex: () => undefined,
-      getType: () => 'http',
-      switchToRpc: () => ({}) as never,
-      switchToWs: () => ({}) as never,
-    } as ExecutionContext;
+    });
 
     await guard.canActivate(ctx);
+    const request = ctx.switchToHttp().getRequest() as { [k: string]: unknown };
     const attached = request[CURRENT_USER_KEY] as AuthenticatedUser;
     expect(attached.roles).toContain('REGISTERED_USER');
     expect(attached.roles).not.toContain('MODERATOR');

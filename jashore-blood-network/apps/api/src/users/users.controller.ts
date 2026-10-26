@@ -15,7 +15,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { updateProfileSchema, type UpdateProfileInput } from '@jbn/validation';
 import type { AuthMeResponse } from '../auth/types';
-import { UsersService } from './users.service';
+import { type UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)

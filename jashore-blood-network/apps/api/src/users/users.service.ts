@@ -10,7 +10,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '../lib/prisma';
+import { type PrismaClient } from '../lib/prisma';
 import type { AuthMeResponse } from '../auth/types';
 import type { UpdateProfileInput } from '@jbn/validation';
 

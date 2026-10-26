@@ -15,8 +15,8 @@
  * submitted by the browser or stored in the JWT.
  */
 
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { type CanActivate, type ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
+import { type Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { CURRENT_USER_KEY } from '../decorators/current-user.decorator';

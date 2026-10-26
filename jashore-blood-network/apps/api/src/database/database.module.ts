@@ -1,4 +1,4 @@
-import { Module, Global, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Module, Global, type OnModuleInit, type OnModuleDestroy, Logger } from '@nestjs/common';
 import { prisma, PrismaClient } from '../lib/prisma';
 
 /**

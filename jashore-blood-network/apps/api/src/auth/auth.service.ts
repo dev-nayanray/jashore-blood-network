@@ -26,9 +26,9 @@
  */
 
 import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaClient, Role } from '../lib/prisma';
-import { SupabaseServerService } from './supabase-server.service';
+import { type ConfigService } from '@nestjs/config';
+import { type PrismaClient, Role } from '../lib/prisma';
+import { type SupabaseServerService } from './supabase-server.service';
 import type {
   AuthMeResponse,
   OtpRequestResponse,

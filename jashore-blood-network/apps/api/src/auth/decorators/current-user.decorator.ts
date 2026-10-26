@@ -10,7 +10,7 @@
  *   getMe(@CurrentUser() user: AuthenticatedUser) { ... }
  */
 
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import type { AuthenticatedUser } from '../types';
 
 export const CURRENT_USER_KEY = 'authenticatedUser';

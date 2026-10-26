@@ -11,7 +11,7 @@
 
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { apiBaseUrl } from '@/lib/env';
 
 export interface AuthUser {
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -67,9 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch(`${apiBaseUrl}/auth/logout`, {
         method: 'POST',
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void refresh();
