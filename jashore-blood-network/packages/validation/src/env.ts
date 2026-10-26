@@ -62,7 +62,6 @@ export function parseEnv<T extends z.ZodTypeAny>(
     const issues = result.error.issues
       .map((i) => `  ${i.path.join('.')}: ${i.message}`)
       .join('\n');
-    // eslint-disable-next-line no-console
     console.error(`\n❌ Invalid environment configuration:\n${issues}\n`);
     process.exit(1);
   }

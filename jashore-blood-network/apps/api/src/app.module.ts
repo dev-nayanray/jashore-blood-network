@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { apiEnvSchema } from '@jbn/validation';
 import { HealthModule } from './health/health.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { HealthModule } from './health/health.module';
         return result.data as Record<string, unknown>;
       },
     }),
+    DatabaseModule,
     HealthModule,
   ],
 })

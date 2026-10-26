@@ -20,6 +20,10 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'src/generated/**', // Prisma client — auto-generated, do not lint
+    ],
   },
 );
