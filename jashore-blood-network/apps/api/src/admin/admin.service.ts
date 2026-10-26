@@ -643,6 +643,267 @@ export class AdminService {
       notificationCount: countMap.get(r.id) ?? 0,
     }));
   }
+
+  // -------------------------------------------------------------------------
+  // Phase 16: Detailed analytics with date-range + upazila filters
+  // -------------------------------------------------------------------------
+
+  /**
+   * Get detailed analytics with date-range and upazila filters.
+   * All counts are from real database queries — no fabricated data.
+   *
+   * CALCULATION DEFINITIONS:
+   *   - "Active requests" = status IN (VERIFIED, SEARCHING, DONOR_RESPONDED, ARRANGED)
+   *   - "Fulfilled" = status = COMPLETED
+   *   - "Cancelled" = status = CANCELLED
+   *   - "Expired" = status = EXPIRED
+   *   - "Time to verification" = verifiedAt - createdAt (for VERIFIED+ requests)
+   *   - "Time to fulfillment" = updatedAt - createdAt (for COMPLETED requests)
+   *   - "Notification success rate" = SENT / (SENT + FAILED) from delivery attempts
+   *
+   * LIMITATIONS:
+   *   - Historical status timestamps may be incomplete (verifiedAt not always set)
+   *   - Metrics represent platform activity, NOT real-world blood supply
+   *   - Does not count donations that happened outside the platform
+   */
+  async getDetailedAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+    upazilaId?: string,
+  ): Promise<DetailedAnalytics> {
+    const dateFilter: Record<string, unknown> = {};
+    if (startDate) dateFilter.gte = startDate;
+    if (endDate) dateFilter.lte = endDate;
+
+    const baseWhere: Record<string, unknown> = { deletedAt: null };
+    if (upazilaId) baseWhere.upazilaId = upazilaId;
+    if (startDate || endDate) baseWhere.createdAt = dateFilter;
+
+    // --- Donor distribution by upazila ---
+    const donorByUpazila = await this.prisma.donorProfile.groupBy({
+      by: ['upazilaId'],
+      _count: { _all: true },
+      where: { deletedAt: null },
+    });
+    const upazilaIds = donorByUpazila.map((d) => d.upazilaId);
+    const upazilas = await this.prisma.upazila.findMany({
+      where: { id: { in: upazilaIds } },
+      select: { id: true, name: true },
+    });
+    const upazilaMap = new Map(upazilas.map((u) => [u.id, u.name]));
+
+    // --- Request counts by status (date-filtered) ---
+    const requestsByStatus = await this.prisma.bloodRequest.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+      where: baseWhere,
+    });
+
+    // --- Request counts by blood group (date-filtered) ---
+    const requestsByBloodGroup = await this.prisma.bloodRequest.groupBy({
+      by: ['bloodGroup'],
+      _count: { _all: true },
+      where: baseWhere,
+    });
+
+    // --- Donor counts by blood group ---
+    const donorsByBloodGroup = await this.prisma.donorProfile.groupBy({
+      by: ['bloodGroup'],
+      _count: { _all: true },
+      where: { deletedAt: null },
+    });
+
+    // --- Active requests by upazila ---
+    const activeByUpazila = await this.prisma.bloodRequest.groupBy({
+      by: ['upazilaId'],
+      _count: { _all: true },
+      where: {
+        ...baseWhere,
+        status: { in: ['VERIFIED', 'SEARCHING', 'DONOR_RESPONDED', 'ARRANGED'] as never },
+      },
+    });
+
+    // --- Lifecycle metrics ---
+    const verifiedRequests = await this.prisma.bloodRequest.findMany({
+      where: {
+        ...baseWhere,
+        verifiedAt: { not: null },
+      },
+      select: { createdAt: true, verifiedAt: true },
+      take: 500, // Cap for performance
+    });
+    const completedRequests = await this.prisma.bloodRequest.findMany({
+      where: {
+        ...baseWhere,
+        status: 'COMPLETED' as never,
+      },
+      select: { createdAt: true, updatedAt: true },
+      take: 500,
+    });
+
+    const verificationTimes = verifiedRequests
+      .filter((r) => r.verifiedAt)
+      .map((r) => (r.verifiedAt!.getTime() - r.createdAt.getTime()) / 3600000); // hours
+    const fulfillmentTimes = completedRequests.map(
+      (r) => (r.updatedAt.getTime() - r.createdAt.getTime()) / 3600000,
+    );
+
+    const avgVerificationHours =
+      verificationTimes.length > 0
+        ? verificationTimes.reduce((a, b) => a + b, 0) / verificationTimes.length
+        : null;
+    const avgFulfillmentHours =
+      fulfillmentTimes.length > 0
+        ? fulfillmentTimes.reduce((a, b) => a + b, 0) / fulfillmentTimes.length
+        : null;
+
+    // --- Notification delivery stats ---
+    const [sentCount, failedCount] = await Promise.all([
+      this.prisma.notificationDeliveryAttempt.count({
+        where: { status: 'SENT' },
+      }),
+      this.prisma.notificationDeliveryAttempt.count({
+        where: { status: 'FAILED' },
+      }),
+    ]);
+
+    // --- Verified organizations ---
+    const verifiedHospitals = await this.prisma.hospital.count({
+      where: { verificationStatus: 'VERIFIED' as never, deletedAt: null },
+    });
+
+    // --- Recent activity (last 7 days) ---
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const [recentRegistrations, recentRequests] = await Promise.all([
+      this.prisma.profile.count({
+        where: { createdAt: { gte: sevenDaysAgo }, deletedAt: null },
+      }),
+      this.prisma.bloodRequest.count({
+        where: { createdAt: { gte: sevenDaysAgo }, deletedAt: null },
+      }),
+    ]);
+
+    return {
+      donorDistributionByUpazila: donorByUpazila.map((d) => ({
+        upazila: upazilaMap.get(d.upazilaId) ?? 'Unknown',
+        donorCount: d._count._all,
+      })),
+      activeRequestsByUpazila: activeByUpazila.map((d) => ({
+        upazila: upazilaMap.get(d.upazilaId) ?? 'Unknown',
+        requestCount: d._count._all,
+      })),
+      requestsByStatus: requestsByStatus.map((r) => ({
+        status: r.status,
+        count: r._count._all,
+      })),
+      requestsByBloodGroup: requestsByBloodGroup.map((r) => ({
+        bloodGroup: r.bloodGroup,
+        count: r._count._all,
+      })),
+      donorsByBloodGroup: donorsByBloodGroup.map((r) => ({
+        bloodGroup: r.bloodGroup,
+        count: r._count._all,
+      })),
+      lifecycle: {
+        avgVerificationHours,
+        avgFulfillmentHours,
+        verifiedCount: verificationTimes.length,
+        completedCount: fulfillmentTimes.length,
+        cancelledCount: requestsByStatus.find((r) => r.status === 'CANCELLED')?._count._all ?? 0,
+        expiredCount: requestsByStatus.find((r) => r.status === 'EXPIRED')?._count._all ?? 0,
+      },
+      notifications: {
+        sentCount,
+        failedCount,
+        successRate: sentCount + failedCount > 0 ? sentCount / (sentCount + failedCount) : null,
+      },
+      organizations: {
+        verifiedHospitals,
+      },
+      recentActivity: {
+        registrationsLast7Days: recentRegistrations,
+        requestsLast7Days: recentRequests,
+      },
+    };
+  }
+
+  /**
+   * Generate a CSV export of request summary data.
+   * Protects against formula injection by prefixing cells starting with
+   * =, +, -, @, or tab with a single quote.
+   *
+   * SECURITY:
+   *   - No phone numbers, emails, or patient PII in the export
+   *   - Only aggregate/request-level data (blood group, status, upazila, dates)
+   *   - Backend-enforced admin authorization
+   */
+  async exportRequestsCsv(
+    startDate?: Date,
+    endDate?: Date,
+    upazilaId?: string,
+  ): Promise<string> {
+    const where: Record<string, unknown> = { deletedAt: null };
+    if (upazilaId) where.upazilaId = upazilaId;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) (where.createdAt as Record<string, unknown>).gte = startDate;
+      if (endDate) (where.createdAt as Record<string, unknown>).lte = endDate;
+    }
+
+    const requests = await this.prisma.bloodRequest.findMany({
+      where,
+      take: 1000, // Cap for safety
+      orderBy: { createdAt: 'desc' },
+      include: {
+        upazila: { select: { name: true } },
+      },
+    });
+
+    const headers = [
+      'Request ID',
+      'Blood Group',
+      'Units',
+      'Upazila',
+      'Hospital',
+      'Urgency',
+      'Status',
+      'Required By',
+      'Created At',
+      'Updated At',
+    ];
+
+    const escapeCell = (value: string): string => {
+      // Formula injection protection: prefix dangerous characters with single quote
+      if (/^[=+\-@\t\r]/.test(value)) {
+        return `'${value}`;
+      }
+      // Escape quotes and commas
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const rows = requests.map((r) =>
+      [
+        r.id,
+        r.bloodGroup,
+        String(r.unitsRequested),
+        r.upazila?.name ?? 'Unknown',
+        r.hospitalName ?? '',
+        r.urgency,
+        r.status,
+        r.requiredBy.toISOString(),
+        r.createdAt.toISOString(),
+        r.updatedAt.toISOString(),
+      ]
+        .map(escapeCell)
+        .join(','),
+    );
+
+    return [headers.join(','), ...rows].join('\n');
+  }
 }
 
 // Role level mapping for privilege escalation prevention
@@ -674,5 +935,34 @@ export interface EmergencyRequestItem {
   updatedAt: string;
   ageMinutes: number;
   notificationCount: number;
+}
+
+// Phase 16: Detailed analytics
+export interface DetailedAnalytics {
+  donorDistributionByUpazila: Array<{ upazila: string; donorCount: number }>;
+  activeRequestsByUpazila: Array<{ upazila: string; requestCount: number }>;
+  requestsByStatus: Array<{ status: string; count: number }>;
+  requestsByBloodGroup: Array<{ bloodGroup: string; count: number }>;
+  donorsByBloodGroup: Array<{ bloodGroup: string; count: number }>;
+  lifecycle: {
+    avgVerificationHours: number | null;
+    avgFulfillmentHours: number | null;
+    verifiedCount: number;
+    completedCount: number;
+    cancelledCount: number;
+    expiredCount: number;
+  };
+  notifications: {
+    sentCount: number;
+    failedCount: number;
+    successRate: number | null;
+  };
+  organizations: {
+    verifiedHospitals: number;
+  };
+  recentActivity: {
+    registrationsLast7Days: number;
+    requestsLast7Days: number;
+  };
 }
 

@@ -45,6 +45,35 @@ export class AdminController {
     return this.adminService.getAnalytics();
   }
 
+  // --- Phase 16: Detailed analytics ---
+
+  @Get('analytics/detailed')
+  async getDetailedAnalytics(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('upazilaId') upazilaId?: string,
+  ) {
+    return this.adminService.getDetailedAnalytics(
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+      upazilaId,
+    );
+  }
+
+  @Get('analytics/export')
+  async exportRequestsCsv(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('upazilaId') upazilaId?: string,
+  ) {
+    const csv = await this.adminService.exportRequestsCsv(
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+      upazilaId,
+    );
+    return { csv };
+  }
+
   // --- Phase 13: Emergency coordination ---
 
   @Get('emergency')
