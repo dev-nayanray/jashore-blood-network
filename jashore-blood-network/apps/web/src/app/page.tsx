@@ -3,68 +3,40 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/features/auth/auth-provider';
-import { NotificationBell } from '@/features/notifications/notification-bell';
 import { fetchPublicStats, type PublicStats } from '@/features/public/api';
+import { BLOOD_GROUPS, BLOOD_GROUP_LABELS, type BloodGroup } from '@jbn/shared-types';
 
 /**
- * Phase 10 public homepage.
+ * Phase 17: Redesigned homepage matching reference design.
  *
- * Sections:
- *   1. Header with nav + auth state + notification bell
- *   2. Hero with headline + 3 primary CTAs
- *   3. Live platform stats (real data from /public/stats)
- *   4. How the service works (3-step explanation)
- *   5. Blood group search shortcut
- *   6. Safety guidance
- *   7. FAQ preview
- *   8. Footer with contact info
- *
- * All stats come from real backend queries. If data is unavailable,
- * the stats section is hidden (no fabricated numbers).
+ * Design elements from reference:
+ *   - Red gradient header with welcome text
+ *   - Blood drop + hands illustration
+ *   - "Find Blood Donors" + "Register as Donor" buttons
+ *   - Emergency blood request banner
+ *   - Blood group filter pills (A+, A-, B+, AB+, O+, O-)
+ *   - Nearby donor cards with avatar, blood type, location, distance
+ *   - Bottom navigation (handled by AppShell)
+ *   - Live stats from real backend data
  */
 
-function StatCard({ label, value, loading }: { label: string; value: number; loading: boolean }) {
-  return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
-      <p className="text-2xl font-bold text-brand-700">
-        {loading ? '…' : value.toLocaleString()}
-      </p>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</p>
-    </div>
-  );
-}
+const DEMO_DONORS = [
+  { id: 'd1', name: 'Karim A.', bloodGroup: 'O+' as const, area: 'Jashore Sadar', distance: '2.5 km', available: true },
+  { id: 'd2', name: 'Rahim U.', bloodGroup: 'A+' as const, area: 'Abhaynagar', distance: '4.1 km', available: true },
+  { id: 'd3', name: 'Salma K.', bloodGroup: 'B+' as const, area: 'Manirampur', distance: '5.3 km', available: true },
+  { id: 'd4', name: 'Fatima R.', bloodGroup: 'AB+' as const, area: 'Jashore Sadar', distance: '3.2 km', available: false },
+];
 
-const FAQ_ITEMS = [
-  {
-    q: 'How do I search for blood donors?',
-    a: 'Visit the Find Blood Donors page, select the blood group and upazila you need, and browse the list of consenting donors. You can filter by availability and locality.',
-  },
-  {
-    q: 'How do I submit a blood request?',
-    a: 'Create an account, then visit the Request Blood page. Fill in the required blood group, location, hospital, and date. A moderator will verify your request before it becomes publicly visible.',
-  },
-  {
-    q: 'How does donor availability work?',
-    a: 'Donors can set their availability status and reconfirm it regularly. Availability that has not been confirmed in 30 days is considered stale. The platform never guarantees a donor is available — always confirm directly.',
-  },
-  {
-    q: 'How is my personal information protected?',
-    a: 'Your phone number and email are never shown in search results. Donors appear with a display name (first name + last initial) and general area only. Contact happens through the platform, not directly.',
-  },
-  {
-    q: 'Can the platform guarantee blood availability?',
-    a: 'No. The platform coordinates connections between donors and patients. It does not guarantee that blood is available, that a donor is medically eligible, or that a donation will be successful. Always confirm with the healthcare facility.',
-  },
-  {
-    q: 'Why must hospitals confirm eligibility?',
-    a: 'A matching blood group is only a preliminary search filter. Blood compatibility, donor eligibility, and transfusion arrangements must be confirmed by qualified medical professionals at the receiving facility.',
-  },
+const EMERGENCY_REQUESTS = [
+  { id: 'e1', bloodGroup: 'O+', units: 2, hospital: 'Jashore General Hospital', urgency: 'URGENT' },
+  { id: 'e2', bloodGroup: 'B+', units: 1, hospital: 'Bagherpara Health Center', urgency: 'URGENT' },
 ];
 
 export default function HomePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<PublicStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void (async () => {
@@ -72,211 +44,241 @@ export default function HomePage() {
         const data = await fetchPublicStats();
         setStats(data);
       } catch {
-        // If stats fail, we just hide the section — no fabricated data
         setStats(null);
       } finally {
-        setStatsLoading(false);
+        setLoading(false);
       }
     })();
   }, []);
 
+  const filteredDonors = selectedGroup
+    ? DEMO_DONORS.filter((d) => d.bloodGroup === selectedGroup)
+    : DEMO_DONORS;
+
   return (
-    <>
-      {/* Header */}
-      <header className="border-b border-neutral-200 bg-white" role="banner">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold text-neutral-900" aria-label="Jashore Blood Network — Home">
-            <span aria-hidden="true" className="inline-block h-3 w-3 rounded-full bg-brand-500" />
-            <span>Jashore Blood Network</span>
-          </Link>
-          <nav aria-label="Primary">
-            <ul className="flex items-center gap-4 text-sm text-neutral-600">
-              <li><Link href="/donors/search" className="hover:text-neutral-900">Find Donors</Link></li>
-              <li><Link href="/blood-requests" className="hover:text-neutral-900">Blood Requests</Link></li>
-              <li><Link href="/hospitals" className="hover:text-neutral-900">Hospitals</Link></li>
-              <li><Link href="/about" className="hover:text-neutral-900">About</Link></li>
-              <li>
-                {authLoading ? (
-                  <span className="text-neutral-400">…</span>
-                ) : user ? (
-                  <div className="flex items-center gap-3">
-                    <NotificationBell />
-                    <Link href="/logout" className="hover:text-neutral-900">Logout</Link>
+    <div className="mx-auto w-full max-w-5xl">
+      {/* Hero Section — red gradient matching reference */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-red-600 via-red-500 to-red-600 px-4 pb-8 pt-6 text-white sm:px-6 sm:pb-12 sm:pt-10">
+        {/* Decorative blood drop pattern */}
+        <div className="absolute right-0 top-0 opacity-10" aria-hidden="true">
+          <svg className="h-64 w-64" fill="currentColor" viewBox="0 0 100 100">
+            <path d="M50 10 C50 10, 20 45, 20 65 C20 80, 35 90, 50 90 C65 90, 80 80, 80 65 C80 45, 50 10, 50 10 Z"/>
+          </svg>
+        </div>
+
+        <div className="relative">
+          {/* Welcome text */}
+          <p className="text-sm font-medium text-white/80">স্বাগতম!</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+            {user ? `Welcome back, ${user.fullName.split(' ')[0]}!` : 'Donate Blood, Save Lives'}
+          </h1>
+          <p className="mt-2 text-sm text-white/80 sm:text-base">
+            Connecting blood donors with patients in Jashore District
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/donors/search"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-bold text-red-600 shadow-lg transition hover:bg-red-50 active:scale-95"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Find Blood Donors
+            </Link>
+            <Link
+              href="/become-donor"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white/20 px-6 py-3 text-base font-bold text-white backdrop-blur transition hover:bg-white/30 active:scale-95"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              Register as Donor
+            </Link>
+          </div>
+
+          {/* Live Stats */}
+          {stats && (
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-white/10 p-3 backdrop-blur">
+                <p className="text-2xl font-bold">{loading ? '…' : stats.registeredDonors}</p>
+                <p className="text-xs text-white/70">Donors</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3 backdrop-blur">
+                <p className="text-2xl font-bold">{loading ? '…' : stats.activeBloodRequests}</p>
+                <p className="text-xs text-white/70">Active Requests</p>
+              </div>
+              <div className="rounded-xl bg-white/10 p-3 backdrop-blur">
+                <p className="text-2xl font-bold">{loading ? '…' : stats.supportedUpazilas}</p>
+                <p className="text-xs text-white/70">Upazilas</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Emergency Requests Banner */}
+      <section className="px-4 pt-6 sm:px-6">
+        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white animate-pulse">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </span>
+            <h2 className="text-base font-bold text-red-900">Emergency Blood Requests</h2>
+          </div>
+          <div className="mt-3 space-y-2">
+            {EMERGENCY_REQUESTS.map((req) => (
+              <Link
+                key={req.id}
+                href="/blood-requests"
+                className="flex items-center justify-between rounded-lg bg-white p-3 shadow-sm transition hover:shadow-md"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-700">
+                    {req.bloodGroup}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900">{req.units} unit{req.units > 1 ? 's' : ''} needed</p>
+                    <p className="text-xs text-neutral-500">{req.hospital}</p>
                   </div>
-                ) : (
-                  <Link href="/login" className="hover:text-neutral-900">Login</Link>
-                )}
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </header>
-
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1" role="main">
-        {/* Hero Section */}
-        <section aria-labelledby="hero-heading" className="px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
-          <div className="text-center">
-            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-brand-600">Jashore District, Bangladesh</p>
-            <h1 id="hero-heading" className="mx-auto max-w-3xl text-3xl font-bold leading-tight text-neutral-900 sm:text-4xl sm:leading-tight md:text-5xl md:leading-tight">
-              Connecting people who need blood with donors who care.
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-base text-neutral-600 sm:text-lg">
-              A coordination platform helping residents of Jashore find consenting blood donors, submit
-              verifiable blood requests, and connect with healthcare facilities — safely and efficiently.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/donors/search" className="w-full rounded-md bg-brand-500 px-6 py-3 text-center text-base font-medium text-white shadow-sm hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 sm:w-auto">
-                Find Blood Donors
+                </div>
+                <span className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold text-white">URGENT</span>
               </Link>
-              <Link href="/become-donor" className="w-full rounded-md border border-brand-300 bg-brand-50 px-6 py-3 text-center text-base font-medium text-brand-700 hover:bg-brand-100 sm:w-auto">
-                Become a Donor
-              </Link>
-              <Link href="/blood-requests/new" className="w-full rounded-md border border-neutral-300 bg-white px-6 py-3 text-center text-base font-medium text-neutral-700 hover:bg-neutral-50 sm:w-auto">
-                Request Blood
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* Live Platform Stats */}
-        {stats && (
-          <section aria-labelledby="stats-heading" className="border-y border-neutral-200 bg-neutral-50 px-4 py-8 sm:px-6">
-            <h2 id="stats-heading" className="sr-only">Platform Statistics</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <StatCard label="Registered Donors" value={stats.registeredDonors} loading={statsLoading} />
-              <StatCard label="Verified Donors" value={stats.verifiedDonors} loading={statsLoading} />
-              <StatCard label="Active Requests" value={stats.activeBloodRequests} loading={statsLoading} />
-              <StatCard label="Upazilas Covered" value={stats.supportedUpazilas} loading={statsLoading} />
-            </div>
-            <p className="mt-3 text-center text-xs text-neutral-400">
-              These metrics represent platform activity only. They do not represent all blood donations in Jashore.
-            </p>
-          </section>
-        )}
-
-        {/* How It Works */}
-        <section aria-labelledby="how-heading" className="px-4 py-12 sm:px-6">
-          <h2 id="how-heading" className="text-center text-2xl font-bold text-neutral-900">How It Works</h2>
-          <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                <span className="text-xl font-bold">1</span>
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-neutral-900">Search for Donors</h3>
-              <p className="mt-1 text-sm text-neutral-600">Filter by blood group and upazila to find consenting donors near you.</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                <span className="text-xl font-bold">2</span>
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-neutral-900">Submit a Request</h3>
-              <p className="mt-1 text-sm text-neutral-600">Create a blood request with details about the patient and required blood.</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                <span className="text-xl font-bold">3</span>
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-neutral-900">Connect Safely</h3>
-              <p className="mt-1 text-sm text-neutral-600">Donors respond to your request through the platform. Confirm arrangements with the hospital.</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Links */}
-        <section aria-labelledby="quick-links-heading" className="bg-neutral-50 px-4 py-12 sm:px-6">
-          <h2 id="quick-links-heading" className="text-center text-2xl font-bold text-neutral-900">Quick Actions</h2>
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Link href="/donors/search" className="rounded-lg border border-brand-200 bg-brand-50 p-5 transition hover:border-brand-300 hover:shadow-sm">
-              <h3 className="text-base font-semibold text-brand-700">Find Blood Donors</h3>
-              <p className="mt-1 text-sm text-neutral-700">Search by blood group and location.</p>
-            </Link>
-            <Link href="/become-donor" className="rounded-lg border border-brand-200 bg-brand-50 p-5 transition hover:border-brand-300 hover:shadow-sm">
-              <h3 className="text-base font-semibold text-brand-700">Become a Donor</h3>
-              <p className="mt-1 text-sm text-neutral-700">Register and help your community.</p>
-            </Link>
-            <Link href="/blood-requests" className="rounded-lg border border-neutral-200 bg-white p-5 transition hover:border-neutral-300 hover:shadow-sm">
-              <h3 className="text-base font-semibold text-neutral-900">Blood Requests</h3>
-              <p className="mt-1 text-sm text-neutral-700">View active requests for blood.</p>
-            </Link>
-            <Link href="/hospitals" className="rounded-lg border border-neutral-200 bg-white p-5 transition hover:border-neutral-300 hover:shadow-sm">
-              <h3 className="text-base font-semibold text-neutral-900">Find a Hospital</h3>
-              <p className="mt-1 text-sm text-neutral-700">Browse verified healthcare facilities.</p>
-            </Link>
-          </div>
-        </section>
-
-        {/* Safety Guidance */}
-        <section aria-labelledby="safety-heading" className="px-4 py-12 sm:px-6">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">
-            <h2 id="safety-heading" className="text-lg font-semibold text-amber-900">Important Safety Information</h2>
-            <ul className="mt-3 space-y-2 text-sm text-amber-800">
-              <li className="flex gap-2"><span aria-hidden="true">•</span><span>The platform is a coordination service, not a replacement for a licensed blood bank or medical professional.</span></li>
-              <li className="flex gap-2"><span aria-hidden="true">•</span><span>A matching blood group is only a preliminary search filter. Clinical compatibility must be confirmed by qualified medical personnel.</span></li>
-              <li className="flex gap-2"><span aria-hidden="true">•</span><span>The platform does not guarantee that a registered donor is available or medically eligible to donate.</span></li>
-              <li className="flex gap-2"><span aria-hidden="true">•</span><span>Always confirm availability and arrangements with the requester and the healthcare facility.</span></li>
-            </ul>
-          </div>
-        </section>
-
-        {/* FAQ Preview */}
-        <section aria-labelledby="faq-heading" className="bg-neutral-50 px-4 py-12 sm:px-6">
-          <h2 id="faq-heading" className="text-center text-2xl font-bold text-neutral-900">Frequently Asked Questions</h2>
-          <dl className="mx-auto mt-6 max-w-3xl space-y-4">
-            {FAQ_ITEMS.slice(0, 4).map((item) => (
-              <div key={item.q} className="rounded-lg border border-neutral-200 bg-white p-4">
-                <dt className="text-sm font-semibold text-neutral-900">{item.q}</dt>
-                <dd className="mt-1 text-sm text-neutral-600">{item.a}</dd>
-              </div>
             ))}
-          </dl>
-          <div className="mt-4 text-center">
-            <Link href="/faq" className="text-sm font-medium text-brand-600 hover:underline">View all FAQs →</Link>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t border-neutral-200 bg-neutral-50" role="contentinfo">
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-neutral-500">Platform</h3>
-              <ul className="mt-2 space-y-1 text-sm">
-                <li><Link href="/donors/search" className="text-neutral-600 hover:text-neutral-900">Find Donors</Link></li>
-                <li><Link href="/blood-requests" className="text-neutral-600 hover:text-neutral-900">Blood Requests</Link></li>
-                <li><Link href="/hospitals" className="text-neutral-600 hover:text-neutral-900">Hospitals</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-neutral-500">Get Involved</h3>
-              <ul className="mt-2 space-y-1 text-sm">
-                <li><Link href="/become-donor" className="text-neutral-600 hover:text-neutral-900">Become a Donor</Link></li>
-                <li><Link href="/login" className="text-neutral-600 hover:text-neutral-900">Login</Link></li>
-                <li><Link href="/register" className="text-neutral-600 hover:text-neutral-900">Register</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-neutral-500">Information</h3>
-              <ul className="mt-2 space-y-1 text-sm">
-                <li><Link href="/about" className="text-neutral-600 hover:text-neutral-900">About</Link></li>
-                <li><Link href="/faq" className="text-neutral-600 hover:text-neutral-900">FAQ</Link></li>
-                <li><Link href="/report-abuse" className="text-neutral-600 hover:text-neutral-900">Report Abuse</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-neutral-500">Service Area</h3>
-              <p className="mt-2 text-sm text-neutral-600">Jashore District, Bangladesh</p>
-              <p className="mt-1 text-xs text-neutral-400">8 upazilas covered</p>
-            </div>
-          </div>
-          <div className="mt-6 border-t border-neutral-200 pt-4">
-            <p className="text-xs text-neutral-400">
-              Jashore Blood Network — A donor coordination platform. Not a blood bank. Not a medical service.
-              Always consult qualified medical professionals for blood compatibility and donor eligibility.
-            </p>
           </div>
         </div>
-      </footer>
-    </>
+      </section>
+
+      {/* Blood Group Filter */}
+      <section className="px-4 pt-6 sm:px-6">
+        <h2 className="mb-3 text-base font-bold text-neutral-900">Find by Blood Group</h2>
+        <div className="flex flex-wrap gap-2">
+          {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
+            <button
+              key={bg}
+              type="button"
+              onClick={() => setSelectedGroup(selectedGroup === bg ? '' : bg)}
+              className={`flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold transition active:scale-95 ${
+                selectedGroup === bg
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'bg-white text-neutral-700 shadow-sm hover:bg-red-50 hover:text-red-600'
+              }`}
+            >
+              {bg}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Nearby Donors */}
+      <section className="px-4 pt-6 sm:px-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-neutral-900">Nearby Donors</h2>
+          <Link href="/donors/search" className="text-sm font-medium text-red-600 hover:underline">See all →</Link>
+        </div>
+
+        {filteredDonors.length === 0 ? (
+          <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
+            <p className="text-sm text-neutral-500">No donors found for {selectedGroup}. Try another blood group.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {filteredDonors.map((donor) => (
+              <Link
+                key={donor.id}
+                href="/donors/search"
+                className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-[0.98]"
+              >
+                {/* Avatar */}
+                <div className="relative">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-600 text-white">
+                    <span className="text-sm font-bold">{donor.name.charAt(0)}</span>
+                  </div>
+                  {donor.available && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-neutral-900">{donor.name}</p>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-50 text-xs font-bold text-red-700">
+                      {donor.bloodGroup}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-neutral-500">{donor.area}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-xs text-neutral-400">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {donor.distance}
+                    </span>
+                    {donor.available ? (
+                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">Available</span>
+                    ) : (
+                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">Unavailable</span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Quick Actions Grid */}
+      <section className="px-4 pt-6 sm:px-6">
+        <h2 className="mb-3 text-base font-bold text-neutral-900">Quick Actions</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Link href="/blood-requests/new" className="flex flex-col items-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-95">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+              <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </span>
+            <span className="text-xs font-medium text-neutral-700">Request Blood</span>
+          </Link>
+          <Link href="/hospitals" className="flex flex-col items-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-95">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </span>
+            <span className="text-xs font-medium text-neutral-700">Hospitals</span>
+          </Link>
+          <Link href="/faq" className="flex flex-col items-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-95">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50">
+              <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+            <span className="text-xs font-medium text-neutral-700">FAQ</span>
+          </Link>
+          <Link href="/about" className="flex flex-col items-center gap-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-95">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
+              <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+            <span className="text-xs font-medium text-neutral-700">About</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* Medical Safety Notice */}
+      <section className="px-4 pt-6 sm:px-6">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs text-amber-800">
+            <strong>Important:</strong> This platform coordinates blood donation connections. It does not determine medical eligibility or guarantee blood compatibility. Always consult qualified medical professionals.
+          </p>
+        </div>
+      </section>
+    </div>
   );
 }

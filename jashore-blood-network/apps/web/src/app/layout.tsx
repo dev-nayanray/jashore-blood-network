@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/features/auth/auth-provider';
+import { AppShell } from '@/components/app-shell';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,39 +20,19 @@ export const metadata: Metadata = {
   applicationName: 'Jashore Blood Network',
   authors: [{ name: 'Jashore Blood Network' }],
   keywords: [
-    'blood donor',
-    'Jashore',
-    'Bangladesh',
-    'blood request',
-    'donor coordination',
-    'blood donation',
-    'Jashore Sadar',
-    'Abhaynagar',
-    'Bagherpara',
-    'Chaugachha',
-    'Jhikargachha',
-    'Keshabpur',
-    'Manirampur',
-    'Sharsha',
+    'blood donor', 'Jashore', 'Bangladesh', 'blood request',
+    'donor coordination', 'blood donation', 'রক্ত দেই',
   ],
-  formatDetection: {
-    telephone: true,
-    address: false,
-    email: false,
-  },
+  formatDetection: { telephone: true, address: false, email: false },
   openGraph: {
     title: 'Jashore Blood Network',
-    description:
-      'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
-    type: 'website',
-    locale: 'en_US',
-    siteName: 'Jashore Blood Network',
+    description: 'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
+    type: 'website', locale: 'en_US', siteName: 'Jashore Blood Network',
   },
   twitter: {
     card: 'summary',
     title: 'Jashore Blood Network',
-    description:
-      'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
+    description: 'Connecting people who need blood with donors who care. Jashore District, Bangladesh.',
   },
 };
 
@@ -66,8 +47,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="min-h-dvh flex flex-col bg-white text-neutral-900 antialiased">
-        <AuthProvider>{children}</AuthProvider>
+      <body className="min-h-dvh bg-neutral-50 text-neutral-900 antialiased">
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );
