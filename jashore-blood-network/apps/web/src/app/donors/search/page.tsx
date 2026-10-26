@@ -27,6 +27,7 @@ export default function DonorSearchPage() {
   const [selectedUpazila, setSelectedUpazila] = useState('');
   const [selectedBloodGroup, setSelectedBloodGroup] = useState('');
   const [recentlyAvailable, setRecentlyAvailable] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   const [results, setResults] = useState<DonorSearchResult[]>([]);
@@ -74,6 +75,7 @@ export default function DonorSearchPage() {
         districtId: selectedDistrict || undefined,
         upazilaId: selectedUpazila || undefined,
         recentlyAvailable: recentlyAvailable || undefined,
+        verifiedOnly: verifiedOnly || undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -88,7 +90,7 @@ export default function DonorSearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedBloodGroup, selectedDistrict, selectedUpazila, recentlyAvailable, page]);
+  }, [selectedBloodGroup, selectedDistrict, selectedUpazila, recentlyAvailable, verifiedOnly, page]);
 
   // Search on filter change (debounced via useEffect)
   useEffect(() => {
@@ -186,7 +188,7 @@ export default function DonorSearchPage() {
             </select>
           </div>
 
-          <div className="flex items-end">
+          <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 text-sm text-neutral-700">
               <input
                 type="checkbox"
@@ -195,6 +197,15 @@ export default function DonorSearchPage() {
                 className="h-4 w-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
               />
               Recently confirmed only
+            </label>
+            <label className="flex items-center gap-2 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={verifiedOnly}
+                onChange={(e) => setVerifiedOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
+              />
+              Verified donors only
             </label>
           </div>
         </div>

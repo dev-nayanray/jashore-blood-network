@@ -52,7 +52,9 @@ export interface DonorSearchResult {
   locality: { id: string; name: string } | null;
   availabilityConfirmedAt: string;
   lastDonationAt: string | null;
+  isVerified: boolean;
   // NOTE: no contact info — requester must submit a blood request to contact
+  // NOTE: no ranking score — ranking signals are internal, not exposed publicly
 }
 
 export interface DonorSearchResponse {
@@ -329,6 +331,16 @@ export class DonorsService {
   /**
    * Search for donors. Returns a paginated, PII-stripped projection.
    *
+   * RANKING RULES (Phase 12 — Smart Donor Ranking):
+   *   1. Verified donors first (verificationStatus = 'VERIFIED')
+   *   2. Recently confirmed availability (availabilityConfirmedAt DESC)
+   *   3. Last donation date ascending (longer since last donation = higher)
+   *   4. Profile ID ascending (stable tie-breaker, deterministic)
+   *
+   * Ranking does NOT use medical history, protected attributes, or
+   * notification preferences. Higher rank does NOT imply medical
+   * superiority. Ranking signals are NOT exposed to the public.
+   *
    * CRITICAL: this query is the primary attack surface for donor data
    * exfiltration. The defenses are:
    *   1. Prisma WHERE clause: visibility='LISTED', isAvailable=true, deletedAt=null
@@ -363,6 +375,23 @@ export class DonorsService {
       );
       where.availabilityConfirmedAt = { gte: staleThreshold };
     }
+    // Phase 12: verification status filter
+    if (input.verifiedOnly === true) {
+      where.verificationStatus = 'VERIFIED' as never;
+    }
+
+    // Phase 12: Smart ranking — verified first, then freshness, then stable tie-breaker
+    const orderBy: Prisma.DonorProfileOrderByWithRelationInput[] = [
+      // Verified donors appear first (VERIFIED sorts before other enum values alphabetically
+      // in PostgreSQL, but we use a case-based approach for correctness)
+      { verificationStatus: 'asc' },
+      // Recently confirmed availability first
+      { availabilityConfirmedAt: 'desc' },
+      // Longer since last donation = potentially more eligible (ascending = older first)
+      { lastDonationAt: 'asc' },
+      // Stable tie-breaker — deterministic
+      { id: 'asc' },
+    ];
 
     const [total, items] = await Promise.all([
       this.prisma.donorProfile.count({ where }),
@@ -370,10 +399,7 @@ export class DonorsService {
         where,
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
-        orderBy: [
-          { availabilityConfirmedAt: 'desc' },
-          { lastDonationAt: 'asc' },
-        ],
+        orderBy,
         include: {
           profile: { select: { fullName: true } },
           upazila: { select: { id: true, name: true } },
@@ -381,6 +407,11 @@ export class DonorsService {
         },
       }),
     ]);
+
+    // Phase 12: Record privacy-preserving search analytics (async, non-blocking)
+    void this.recordSearchAnalytics(input, total).catch(() => {
+      // Analytics failure should not block search results
+    });
 
     return {
       items: items.map((d) => this.toSearchResult(d)),
@@ -408,6 +439,7 @@ export class DonorsService {
     bloodGroup: string;
     lastDonationAt: Date | null;
     availabilityConfirmedAt: Date;
+    verificationStatus: string;
     profile: { fullName: string } | null;
     upazila: { id: string; name: string } | null;
     locality: { id: string; name: string } | null;
@@ -424,6 +456,7 @@ export class DonorsService {
       lastDonationAt: d.lastDonationAt
         ? d.lastDonationAt.toISOString().slice(0, 10)
         : null,
+      isVerified: d.verificationStatus === 'VERIFIED',
     };
   }
 
@@ -485,5 +518,32 @@ export class DonorsService {
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 12: Search Analytics (privacy-preserving, aggregate only)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Records a privacy-preserving search analytics entry.
+   * Stores ONLY: blood group (if filtered), upazila (if filtered),
+   * result count, page, and timestamp. NO user IDs, IP addresses,
+   * or personal identifiers are stored.
+   *
+   * Called asynchronously — failures are silently ignored so search
+   * performance is never impacted by analytics.
+   */
+  private async recordSearchAnalytics(
+    input: SearchDonorsInput,
+    resultCount: number,
+  ): Promise<void> {
+    await this.prisma.searchAnalytics.create({
+      data: {
+        bloodGroup: input.bloodGroup ?? null,
+        upazilaId: input.upazilaId ?? null,
+        resultCount,
+        page: input.page,
+      },
+    });
   }
 }

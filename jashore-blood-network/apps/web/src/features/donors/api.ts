@@ -15,6 +15,7 @@ export interface DonorSearchResult {
   locality: { id: string; name: string } | null;
   availabilityConfirmedAt: string;
   lastDonationAt: string | null;
+  isVerified: boolean;
 }
 
 export interface DonorSearchResponse {
@@ -66,6 +67,7 @@ export interface SearchDonorsParams {
   upazilaId?: string;
   localityId?: string;
   recentlyAvailable?: boolean;
+  verifiedOnly?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -77,6 +79,7 @@ export async function searchDonors(params: SearchDonorsParams): Promise<DonorSea
   if (params.upazilaId) query.set('upazilaId', params.upazilaId);
   if (params.localityId) query.set('localityId', params.localityId);
   if (params.recentlyAvailable) query.set('recentlyAvailable', 'true');
+  if (params.verifiedOnly) query.set('verifiedOnly', 'true');
   if (params.page) query.set('page', String(params.page));
   if (params.pageSize) query.set('pageSize', String(params.pageSize));
   return apiFetch<DonorSearchResponse>(`/api/v1/donors?${query.toString()}`);

@@ -729,6 +729,20 @@ model DonorVerificationReview {
 // SUSPICIOUS ACTIVITY FLAGS
 // =============================================================================
 
+model SearchAnalytics {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bloodGroup      String?  @map("blood_group") @db.VarChar(20)
+  upazilaId       String?  @map("upazila_id") @db.Uuid
+  resultCount     Int      @map("result_count")
+  page            Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("search_analytics")
+  @@index([createdAt(sort: Desc)])
+  @@index([bloodGroup, createdAt(sort: Desc)])
+  @@index([upazilaId, createdAt(sort: Desc)])
+}
+
 model SuspiciousActivityFlag {
   id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   type            SuspiciousActivityType

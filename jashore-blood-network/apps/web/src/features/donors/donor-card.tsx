@@ -59,6 +59,14 @@ export function DonorCard({ donor, isAuthenticated = false }: DonorCardProps) {
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-neutral-900">
             {donor.displayName}
+            {donor.isVerified && (
+              <span
+                className="ml-1.5 inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
+                title="Profile verified by administrator"
+              >
+                ✓ Verified
+              </span>
+            )}
           </h3>
           <p className="mt-0.5 text-sm text-neutral-600">
             {donor.upazila.name}
