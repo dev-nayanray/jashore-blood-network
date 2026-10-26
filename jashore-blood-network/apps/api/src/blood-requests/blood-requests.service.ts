@@ -34,6 +34,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '../lib/prisma';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ModerationService } from '../moderation/moderation.service';
 import type {
   CreateBloodRequestInput,
   UpdateBloodRequestInput,
@@ -107,6 +108,7 @@ export class BloodRequestsService {
   constructor(
     private readonly prisma: PrismaClient,
     @Optional() private readonly notificationsService?: NotificationsService,
+    @Optional() private readonly moderationService?: ModerationService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -127,6 +129,36 @@ export class BloodRequestsService {
         error: 'Invalid upazila',
         message: 'The selected upazila does not exist.',
       });
+    }
+
+    // Duplicate-request detection: check if the same requester submitted
+    // a request with the same blood group + upazila in the last 24 hours.
+    // This is NOT a hard block — it flags the request for moderator review
+    // and logs a suspicious activity flag.
+    const since = new Date();
+    since.setHours(since.getHours() - 24);
+    const duplicate = await this.prisma.bloodRequest.findFirst({
+      where: {
+        requesterId,
+        bloodGroup: input.bloodGroup as never,
+        upazilaId: input.upazilaId,
+        createdAt: { gte: since },
+        status: { notIn: ['CANCELLED', 'REJECTED'] as never },
+      },
+    });
+
+    if (duplicate) {
+      // Flag for moderator review instead of blocking
+      if (this.moderationService) {
+        await this.moderationService.flagSuspiciousActivity(
+          'DUPLICATE_REQUEST',
+          'profile',
+          requesterId,
+          `Possible duplicate blood request: same blood group (${input.bloodGroup}) and upazila within 24h of request ${duplicate.id}`,
+          { duplicateOf: duplicate.id, bloodGroup: input.bloodGroup, upazilaId: input.upazilaId },
+        );
+      }
+      this.logger.warn(`Possible duplicate request by ${requesterId} (existing: ${duplicate.id})`);
     }
 
     const requiredBy = new Date(input.requiredBy);

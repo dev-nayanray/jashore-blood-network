@@ -8,6 +8,8 @@ import { UsersModule } from './users/users.module';
 import { DonorsModule } from './donors/donors.module';
 import { BloodRequestsModule } from './blood-requests/blood-requests.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DonorVerificationModule } from './donor-verification/donor-verification.module';
+import { ModerationModule } from './moderation/moderation.module';
 import { LocationsModule } from './locations/locations.module';
 
 @Module({
@@ -38,6 +40,8 @@ import { LocationsModule } from './locations/locations.module';
     DonorsModule,
     BloodRequestsModule,
     NotificationsModule,
+    DonorVerificationModule,
+    ModerationModule,
     HealthModule,
   ],
 })

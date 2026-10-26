@@ -40,6 +40,7 @@ function createMockPrisma(overrides: Partial<{
     bloodRequest: {
       findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null), // no duplicate
       create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
       count: vi.fn().mockResolvedValue(0),

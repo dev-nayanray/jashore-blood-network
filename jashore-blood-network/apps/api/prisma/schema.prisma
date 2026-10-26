@@ -100,6 +100,23 @@ enum ContactMethod {
   IN_APP
 }
 
+enum DonorVerificationStatus {
+  UNVERIFIED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum SuspiciousActivityType {
+  DUPLICATE_REQUEST
+  RAPID_REGISTRATION
+  EXCESSIVE_CONTACT_ATTEMPTS
+  IMPERSONATION_SUSPECTED
+  SPAM_SUBMISSION
+  OTHER
+}
+
 enum ResponseStatus {
   PENDING
   ACCEPTED
@@ -298,6 +315,15 @@ model DonorProfile {
   availabilityConfirmedAt  DateTime          @default(now()) @map("availability_confirmed_at")
   visibility               DonorVisibility   @default(LISTED)
   contactPreference        ContactPreference @default(IN_APP_ONLY) @map("contact_preference")
+  // Verification fields (Phase 8)
+  verificationStatus       DonorVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  verificationRequestedAt  DateTime?         @map("verification_requested_at")
+  verificationReviewedAt   DateTime?         @map("verification_reviewed_at")
+  verificationReviewedBy   String?           @map("verification_reviewed_by") @db.Uuid
+  verificationFeedback     String?           @map("verification_feedback") @db.Text
+  suspendedAt              DateTime?         @map("suspended_at")
+  suspendedBy              String?           @map("suspended_by") @db.Uuid
+  suspensionReason         String?           @map("suspension_reason") @db.Text
   createdAt                DateTime          @default(now()) @map("created_at")
   updatedAt                DateTime          @updatedAt @map("updated_at")
   deletedAt                DateTime?         @map("deleted_at")
@@ -305,11 +331,13 @@ model DonorProfile {
   profile                  Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
   upazila                  Upazila           @relation(fields: [upazilaId], references: [id], onDelete: Restrict)
   locality                 Locality?         @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  verificationReviews      DonorVerificationReview[]
 
   @@map("donor_profiles")
   @@index([bloodGroup, upazilaId, isAvailable, deletedAt], map: "donor_profiles_search_idx")
   @@index([availabilityConfirmedAt], map: "donor_profiles_stale_availability_idx")
   @@index([profileId, deletedAt])
+  @@index([verificationStatus], map: "donor_profiles_verification_status_idx")
 }
 
 // =============================================================================
@@ -568,6 +596,48 @@ model AbuseReport {
   @@index([status, createdAt], map: "abuse_reports_queue_idx")
   @@index([targetType, targetId])
   @@index([reporterId, createdAt(sort: Desc)])
+}
+
+// =============================================================================
+// DONOR VERIFICATION REVIEWS (append-only audit trail)
+// =============================================================================
+
+model DonorVerificationReview {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  donorProfileId  String   @map("donor_profile_id") @db.Uuid
+  reviewerId      String   @map("reviewer_id") @db.Uuid
+  previousStatus  DonorVerificationStatus @map("previous_status")
+  newStatus       DonorVerificationStatus @map("new_status")
+  reason          String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  donorProfile    DonorProfile @relation(fields: [donorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("donor_verification_reviews")
+  @@index([donorProfileId, createdAt(sort: Desc)], map: "donor_verification_reviews_donor_idx")
+  @@index([reviewerId, createdAt(sort: Desc)])
+}
+
+// =============================================================================
+// SUSPICIOUS ACTIVITY FLAGS
+// =============================================================================
+
+model SuspiciousActivityFlag {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            SuspiciousActivityType
+  subjectType     String                @map("subject_type") @db.VarChar(60)
+  subjectId       String                @map("subject_id") @db.Uuid
+  description     String                @db.Text
+  metadata        Json                  @default("{}")
+  isResolved      Boolean               @default(false) @map("is_resolved")
+  resolvedBy      String?               @map("resolved_by") @db.Uuid
+  resolvedAt      DateTime?             @map("resolved_at")
+  resolutionNote  String?               @map("resolution_note") @db.Text
+  createdAt       DateTime              @default(now()) @map("created_at")
+
+  @@map("suspicious_activity_flags")
+  @@index([type, isResolved, createdAt(sort: Desc)], map: "suspicious_activity_queue_idx")
+  @@index([subjectType, subjectId])
 }
 
 // =============================================================================
