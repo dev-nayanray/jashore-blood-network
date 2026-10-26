@@ -1,5 +1,5 @@
 /**
- * UsersController — own-profile endpoints.
+ * UsersController — own-profile endpoints + account deactivation.
  *
  * All routes here are authenticated (JwtAuthGuard is global). The :id param
  * is NOT used — operations are always on the current user, which prevents
@@ -9,13 +9,13 @@
  * behind the AssignRolePolicy.
  */
 
-import { Body, Controller, Patch, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, HttpCode, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { updateProfileSchema, type UpdateProfileInput } from '@jbn/validation';
 import type { AuthMeResponse } from '../auth/types';
-import { type UsersService } from './users.service';
+import { UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -33,5 +33,26 @@ export class UsersController {
     @Body() body: UpdateProfileInput,
   ): Promise<AuthMeResponse> {
     return this.usersService.updateMyProfile(user.id, body);
+  }
+
+  /**
+   * POST /api/v1/users/me/deactivate
+   * Soft-deletes the user's account. Requires confirmation in the body.
+   * The user's session is invalidated immediately by JwtAuthGuard.
+   */
+  @Post('me/deactivate')
+  @HttpCode(200)
+  async deactivateAccount(
+    @CurrentUser() user: { id: string },
+    @Body('confirm') confirm: string,
+    @Body('reason') reason?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    if (confirm !== 'DEACTIVATE') {
+      return {
+        success: false,
+        message: 'Please type DEACTIVATE to confirm account deactivation.',
+      };
+    }
+    return this.usersService.deactivateAccount(user.id, reason);
   }
 }
