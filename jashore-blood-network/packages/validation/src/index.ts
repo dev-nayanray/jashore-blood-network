@@ -5,8 +5,9 @@
  * validation; the NestJS backend uses them inside a ZodValidationPipe to
  * validate request bodies before they reach controller handlers.
  *
- * Phase 2 contains only environment-variable schemas. Domain schemas (donor
- * profile, blood request, etc.) will be added in Phase 3+.
+ * Phase 2 contains environment-variable schemas. Phase 4 adds auth schemas.
+ * Domain schemas (donor profile, blood request, etc.) will be added in
+ * Phase 5+.
  */
 
 export {
@@ -19,3 +20,12 @@ export {
   type WebEnv,
   type ApiEnv,
 } from './env';
+
+export {
+  otpRequestSchema,
+  otpVerifySchema,
+  updateProfileSchema,
+  type OtpRequestInput,
+  type OtpVerifyInput,
+  type UpdateProfileInput,
+} from './auth';

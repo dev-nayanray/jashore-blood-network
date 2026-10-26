@@ -1,15 +1,14 @@
 import Link from 'next/link';
+import { useAuth } from '@/features/auth/auth-provider';
 
 /**
- * Phase 2 landing page.
+ * Phase 4 landing page.
  *
- * This is a placeholder homepage. It implements:
- *  - Mobile-first, accessible layout (semantic HTML, ARIA labels, keyboard nav)
- *  - The four primary CTAs from the approved architecture (Find Blood, Become
- *    a Donor, Request Blood, Find a Hospital) — but as disabled placeholders
- *    since the underlying features are Phase 5+
- *  - NO fake statistics, NO fake donor counts, NO emergency countdown timers
- *  - Sticky footer per the architecture's UI/UX standards
+ * Phase 2: mobile-first, accessible layout, four primary CTAs (disabled placeholders).
+ * Phase 4: header now shows login/account link based on auth state via useAuth().
+ *
+ * The four primary CTAs (Find Blood, Become a Donor, Request Blood, Find a
+ * Hospital) remain disabled placeholders until Phase 5+.
  *
  * Real homepage content lands in Phase 5 (Donor Registration and Search).
  */
@@ -48,6 +47,7 @@ const STATUS_BADGES = [
 ] as const;
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
   return (
     <>
       <header className="border-b border-neutral-200 bg-white" role="banner">
@@ -74,6 +74,19 @@ export default function HomePage() {
                 <Link href="/contact" className="hover:text-neutral-900">
                   Contact
                 </Link>
+              </li>
+              <li>
+                {loading ? (
+                  <span className="text-neutral-400">…</span>
+                ) : user ? (
+                  <Link href="/logout" className="hover:text-neutral-900">
+                    Logout ({user.fullName})
+                  </Link>
+                ) : (
+                  <Link href="/login" className="hover:text-neutral-900">
+                    Login
+                  </Link>
+                )}
               </li>
             </ul>
           </nav>

@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import type { ApiEnv } from '@jbn/validation';
@@ -18,6 +19,9 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
+  // Cookie parser — required for the auth cookie-based session
+  app.use(cookieParser());
+
   // Restrictive CORS — never wildcard with credentials
   const config = app.get(ConfigService<ApiEnv, true>);
   const allowedOrigins = config
@@ -29,7 +33,7 @@ async function bootstrap() {
     origin: allowedOrigins.length === 0 ? false : allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
     preflightContinue: false,
     optionsSuccessStatus: 204,
     maxAge: 3600,
@@ -51,8 +55,8 @@ async function bootstrap() {
   // Strip @Exclude() fields from response DTOs
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-  // Health check endpoint is unauthenticated; everything else will be guarded
-  // in Phase 4 when auth lands. For Phase 2, only /health exists.
+  // Global prefix: all routes are under /api/v1 except /health.
+  // Auth routes are at /api/v1/auth/*, user routes at /api/v1/users/*.
   app.setGlobalPrefix('api/v1', {
     exclude: ['/health'],
   });

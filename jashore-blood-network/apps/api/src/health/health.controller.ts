@@ -1,4 +1,5 @@
 import { Controller, Get, Header } from '@nestjs/common';
+import { Public } from '../auth/decorators/public.decorator';
 import type { HealthCheckResponse } from '@jbn/shared-types';
 
 /**
@@ -10,6 +11,8 @@ import type { HealthCheckResponse } from '@jbn/shared-types';
  *   - Vercel's deployment smoke test
  *   - The frontend's "is the API up?" indicator
  *
+ * Marked @Public() because the JwtAuthGuard is global in Phase 4.
+ *
  * Phase 2 only reports process liveness. Phase 8+ will add sub-checks for
  * database connectivity, auth service, and notification queue.
  */
@@ -19,6 +22,7 @@ const START_TIME = Date.now();
 @Controller('health')
 export class HealthController {
   @Get()
+  @Public()
   @Header('Content-Type', 'application/json')
   @Header('Cache-Control', 'no-store')
   check(): HealthCheckResponse {

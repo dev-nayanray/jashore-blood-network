@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { apiEnvSchema } from '@jbn/validation';
 import { HealthModule } from './health/health.module';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -13,7 +15,6 @@ import { DatabaseModule } from './database/database.module';
       validate: (env) => {
         const result = apiEnvSchema.safeParse(env);
         if (!result.success) {
-           
           console.error(
             '\n❌ Invalid API environment configuration:\n' +
               result.error.issues
@@ -27,6 +28,8 @@ import { DatabaseModule } from './database/database.module';
       },
     }),
     DatabaseModule,
+    AuthModule,
+    UsersModule,
     HealthModule,
   ],
 })
