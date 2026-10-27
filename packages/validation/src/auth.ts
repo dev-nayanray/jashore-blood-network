@@ -76,3 +76,16 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/**
+ * Request body for POST /api/v1/auth/login (admin password login).
+ * `identifier` is 'admin' or the admin phone number (E.164 or local
+ * 0-prefixed form). This login path exists for administrators only —
+ * regular users always use phone OTP.
+ */
+export const passwordLoginSchema = z.object({
+  identifier: z.string().min(3).max(20),
+  password: z.string().min(6).max(128),
+});
+
+export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;

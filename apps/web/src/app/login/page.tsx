@@ -14,17 +14,60 @@ import { apiBaseUrl } from '@/lib/env';
  * platform is fully usable for demos at zero cost.
  */
 
+type LoginMode = 'otp' | 'admin';
+
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<LoginMode>('otp');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [demoOtp, setDemoOtp] = useState<string | null>(null);
+  const [adminUser, setAdminUser] = useState('admin');
+  const [adminPass, setAdminPass] = useState('');
   const [step, setStep] = useState<'input' | 'otp'>('input');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const fullPhone = phone.startsWith('+880') ? phone : `+880${phone.replace(/^0/, '')}`;
+
+  const switchMode = (m: LoginMode) => {
+    setMode(m);
+    setStep('input');
+    setOtp('');
+    setDemoOtp(null);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleAdminLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: adminUser.trim(), password: adminPass }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      if (res.status === 429) {
+        setError('Too many attempts. Please wait a few minutes.');
+      } else if (res.status === 401 || res.status === 403) {
+        setError(body.message ?? 'Username or password is incorrect.');
+      } else if (res.ok) {
+        router.push('/admin/dashboard');
+        router.refresh();
+      } else {
+        setError(body.message ?? 'Something went wrong. Please try again.');
+      }
+    } catch {
+      setError('Could not connect to server. Check your internet connection.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSendOtp = async (e: FormEvent) => {
     e.preventDefault();
@@ -141,7 +184,79 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-xl">
-          {step === 'input' ? (
+          {/* Mode tabs */}
+          <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'otp'}
+              onClick={() => switchMode('otp')}
+              className={`rounded-lg py-2 text-sm font-semibold transition ${
+                mode === 'otp' ? 'bg-white text-red-600 shadow' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Phone OTP
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'admin'}
+              onClick={() => switchMode('admin')}
+              className={`rounded-lg py-2 text-sm font-semibold transition ${
+                mode === 'admin' ? 'bg-white text-red-600 shadow' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Admin Login
+            </button>
+          </div>
+
+          {mode === 'admin' ? (
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div>
+                <label htmlFor="adminUser" className="block text-sm font-medium text-neutral-700">Username</label>
+                <input
+                  id="adminUser"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={adminUser}
+                  onChange={(e) => setAdminUser(e.target.value)}
+                  placeholder="admin"
+                  className="mt-1 block w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-3 text-base text-neutral-900 focus:border-red-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                  disabled={submitting}
+                  minLength={3}
+                  maxLength={20}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label htmlFor="adminPass" className="block text-sm font-medium text-neutral-700">Password</label>
+                <input
+                  id="adminPass"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-1 block w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-3 text-base text-neutral-900 focus:border-red-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-500"
+                  disabled={submitting}
+                  minLength={6}
+                  maxLength={128}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting || adminUser.trim().length < 3 || adminPass.length < 6}
+                className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 py-3 text-base font-bold text-white shadow-lg transition hover:from-red-700 hover:to-red-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? 'Signing in…' : 'Sign In'}
+              </button>
+              <p className="text-center text-xs text-neutral-400">
+                Demo credentials: <span className="font-semibold text-neutral-500">admin / admin123</span>
+              </p>
+            </form>
+          ) : step === 'input' ? (
             <>
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>

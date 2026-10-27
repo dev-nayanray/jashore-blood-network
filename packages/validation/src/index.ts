@@ -24,9 +24,11 @@ export {
 export {
   otpRequestSchema,
   otpVerifySchema,
+  passwordLoginSchema,
   updateProfileSchema,
   type OtpRequestInput,
   type OtpVerifyInput,
+  type PasswordLoginInput,
   type UpdateProfileInput,
 } from './auth';
 

@@ -35,9 +35,11 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   otpRequestSchema,
   otpVerifySchema,
+  passwordLoginSchema,
   updateProfileSchema,
   type OtpRequestInput,
   type OtpVerifyInput,
+  type PasswordLoginInput,
   type UpdateProfileInput,
 } from '@jbn/validation';
 import {
@@ -52,6 +54,7 @@ import {
 // Rate limits — calibrated for the pilot per the architecture plan, Table 9.2
 const OTP_REQUEST_THROTTLE = { default: { limit: 3, ttl: 60 * 60 * 1000 } }; // 3/hour/phone
 const OTP_VERIFY_THROTTLE = { default: { limit: 10, ttl: 60 * 60 * 1000 } }; // 10/hour/IP
+const PASSWORD_LOGIN_THROTTLE = { default: { limit: 10, ttl: 60 * 60 * 1000 } }; // 10/hour/IP
 
 @Controller('auth')
 export class AuthController {
@@ -68,6 +71,31 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(otpRequestSchema))
   async requestOtp(@Body() _body: OtpRequestInput): Promise<OtpRequestResponse> {
     return this.authService.sendOtp(_body);
+  }
+
+  /**
+   * POST /api/v1/auth/login
+   * Public. Admin username+password login (no OTP). Rate-limited.
+   * Sets the same httpOnly session cookies as the OTP flow.
+   */
+  @Public()
+  @Post('login')
+  @HttpCode(200)
+  @Throttle(PASSWORD_LOGIN_THROTTLE)
+  @UsePipes(new ZodValidationPipe(passwordLoginSchema))
+  async passwordLogin(
+    @Body() body: PasswordLoginInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<OtpVerifyResponse> {
+    const metadata = {
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    const { response, session } = await this.authService.passwordLogin(body, metadata);
+    res.cookie(COOKIE_NAMES.accessToken, session.access_token, ACCESS_TOKEN_COOKIE_OPTIONS);
+    res.cookie(COOKIE_NAMES.refreshToken, session.refresh_token, REFRESH_TOKEN_COOKIE_OPTIONS);
+    return response;
   }
 
   /**

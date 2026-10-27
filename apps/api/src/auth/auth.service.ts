@@ -27,14 +27,22 @@
 
 import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { PrismaClient, Role } from '../lib/prisma';
+import { DEMO_ADMIN_PHONE } from '../seed/demo-seed';
 import { SupabaseServerService } from './supabase-server.service';
+import { LocalAuthService } from './local-auth.service';
 import type {
   AuthMeResponse,
   OtpRequestResponse,
   OtpVerifyResponse,
 } from './types';
-import type { OtpRequestInput, OtpVerifyInput, UpdateProfileInput } from '@jbn/validation';
+import type {
+  OtpRequestInput,
+  OtpVerifyInput,
+  PasswordLoginInput,
+  UpdateProfileInput,
+} from '@jbn/validation';
 
 @Injectable()
 export class AuthService {
@@ -44,6 +52,7 @@ export class AuthService {
     private readonly supabase: SupabaseServerService,
     private readonly prisma: PrismaClient,
     private readonly config: ConfigService,
+    private readonly localAuth: LocalAuthService,
   ) {}
 
   /**
@@ -71,6 +80,81 @@ export class AuthService {
       message:
         'If the phone number is valid, an OTP has been sent. The OTP expires in 10 minutes.',
       ...(result.demoCode ? { demoOtp: result.demoCode } : {}),
+    };
+  }
+
+  /**
+   * Admin password login (no OTP).
+   *
+   * Convenience path for administrators so they are not dependent on OTP
+   * delivery. Only accounts holding an admin role can use it; regular
+   * users always authenticate via phone OTP. The password comes from the
+   * ADMIN_PASSWORD env var — when unset it falls back to the documented
+   * demo default ('admin123') so a fresh demo deployment is usable
+   * immediately. Sessions are the same local JWTs the OTP flow issues.
+   */
+  async passwordLogin(
+    input: PasswordLoginInput,
+    metadata: { ipAddress?: string; userAgent?: string },
+  ): Promise<{
+    response: OtpVerifyResponse;
+    session: { access_token: string; refresh_token: string; expires_in: number };
+  }> {
+    if (this.supabase.getMode() !== 'local') {
+      throw new ForbiddenException({
+        error: 'Password login disabled',
+        message: 'Password login is only available in local (demo) auth mode.',
+      });
+    }
+
+    const expected = this.config.get<string>('ADMIN_PASSWORD') || 'admin123';
+    const a = createHash('sha256').update(input.password).digest();
+    const b = createHash('sha256').update(expected).digest();
+    if (!timingSafeEqual(a, b)) {
+      throw new UnauthorizedException({
+        error: 'Invalid credentials',
+        message: 'Username or password is incorrect.',
+      });
+    }
+
+    // 'admin' (or any non-phone identifier) maps to the demo admin phone;
+    // a phone-like identifier is normalized to E.164.
+    const digits = input.identifier.replace(/\D/g, '');
+    const phone =
+      digits.length >= 10
+        ? `+880${(digits.startsWith('880') ? digits.slice(3) : digits).replace(/^0+/, '')}`
+        : DEMO_ADMIN_PHONE;
+    const profile = await this.prisma.profile.findUnique({
+      where: { phone },
+      include: { roles: true },
+    });
+    const isAdmin = profile?.roles.some(
+      (r) =>
+        r.revokedAt === null &&
+        ['SUPER_ADMINISTRATOR', 'DISTRICT_ADMINISTRATOR', 'MODERATOR'].includes(r.role),
+    );
+    if (!profile || !isAdmin || !profile.isActive) {
+      throw new UnauthorizedException({
+        error: 'Invalid credentials',
+        message: 'Username or password is incorrect.',
+      });
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: profile.id,
+        action: 'ADMIN_PASSWORD_LOGIN',
+        targetType: 'user',
+        targetId: profile.id,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        metadata: { identifier: input.identifier },
+      },
+    });
+
+    return {
+      response: { user: this.toAuthMe(profile, profile.roles) },
+      session: this.localAuth.mintSession(profile.id, profile.phone),
     };
   }
 
