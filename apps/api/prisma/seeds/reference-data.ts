@@ -23,7 +23,7 @@
  * against the production database with explicit approval.
  */
 
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaClient } from '../../src/generated/prisma';
 
 const prisma = new PrismaClient({
   datasources: {
@@ -65,7 +65,7 @@ async function main() {
   for (const upazilaName of JASHORE_UPAZILAS) {
     const upazila = await prisma.upazila.upsert({
       where: {
-        district_name: {
+        districtId_name: {
           districtId: district.id,
           name: upazilaName,
         },

@@ -16,7 +16,7 @@
  */
 
 import { type CanActivate, type ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
-import { type Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { CURRENT_USER_KEY } from '../decorators/current-user.decorator';

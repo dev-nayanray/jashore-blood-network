@@ -32,7 +32,7 @@ import {
   BadRequestException,
   Optional,
 } from '@nestjs/common';
-import { Prisma, type PrismaClient } from '../lib/prisma';
+import { Prisma, PrismaClient } from '../lib/prisma';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ModerationService } from '../moderation/moderation.service';
 import type {

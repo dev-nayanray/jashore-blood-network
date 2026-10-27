@@ -31,7 +31,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, type PrismaClient } from '../lib/prisma';
+import { Prisma, PrismaClient } from '../lib/prisma';
 import { getCompatibleDonorGroups } from './blood-group-compatibility';
 import type { EmailProvider } from './email/email-provider.interface';
 import type { BloodGroup } from '@jbn/shared-types';

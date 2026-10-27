@@ -65,9 +65,11 @@ export class BloodRequestsController {
    */
   @Public()
   @Get()
-  @UsePipes(new ZodValidationPipe(searchBloodRequestsSchema))
   async list(
-    @Query() query: SearchBloodRequestsInput,
+    // Pipe on the @Query decorator: validates the whole query object.
+    // (A method-level pipe would run once per parameter instead.)
+    @Query(new ZodValidationPipe(searchBloodRequestsSchema))
+    query: SearchBloodRequestsInput,
     @CurrentUser() user: AuthenticatedUser | undefined,
   ): Promise<BloodRequestListResponse> {
     return this.bloodRequestsService.listRequests(query, user?.id);

@@ -14,7 +14,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { type PrismaClient } from '../lib/prisma';
+import { PrismaClient } from '../lib/prisma';
 
 export interface PublicStats {
   registeredDonors: number;

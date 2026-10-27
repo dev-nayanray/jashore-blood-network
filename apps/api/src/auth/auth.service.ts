@@ -26,9 +26,9 @@
  */
 
 import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { type ConfigService } from '@nestjs/config';
-import { type PrismaClient, Role } from '../lib/prisma';
-import { type SupabaseServerService } from './supabase-server.service';
+import { ConfigService } from '@nestjs/config';
+import { PrismaClient, Role } from '../lib/prisma';
+import { SupabaseServerService } from './supabase-server.service';
 import type {
   AuthMeResponse,
   OtpRequestResponse,
@@ -70,6 +70,7 @@ export class AuthService {
       status: 'pending',
       message:
         'If the phone number is valid, an OTP has been sent. The OTP expires in 10 minutes.',
+      ...(result.demoCode ? { demoOtp: result.demoCode } : {}),
     };
   }
 
@@ -91,11 +92,11 @@ export class AuthService {
     response: OtpVerifyResponse;
     session: { access_token: string; refresh_token: string; expires_in: number };
   }> {
-    const result = await this.supabase.verifyOtp(input.phone, input.token);
+    const result = await this.supabase.verifyOtp(input.phone, input.token, input.fullName);
     if (!result.session || !result.user) {
       throw new UnauthorizedException({
         error: 'Invalid OTP',
-        message: 'The OTP is invalid, expired, or has already been used.',
+        message: result.error ?? 'The OTP is invalid, expired, or has already been used.',
       });
     }
 

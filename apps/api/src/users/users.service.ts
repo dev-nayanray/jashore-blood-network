@@ -19,7 +19,7 @@
  */
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { type PrismaClient } from '../lib/prisma';
+import { PrismaClient } from '../lib/prisma';
 import type { AuthMeResponse } from '../auth/types';
 import type { UpdateProfileInput } from '@jbn/validation';
 

@@ -1,66 +1,92 @@
 /**
- * Server-side Supabase client.
+ * Server-side auth gateway.
  *
- * CRITICAL SECURITY NOTES:
- *   - This client uses the SERVICE-ROLE key, which BYPASSES Row Level Security.
- *   - It is therefore NEVER imported by frontend code, NEVER shipped to the
- *     browser, and NEVER appears in any NEXT_PUBLIC_ environment variable.
- *   - It is used here ONLY for: sending OTPs, verifying OTPs, refreshing
- *     tokens, revoking sessions, and admin user lookups.
- *   - All other database reads/writes go through Prisma, where RLS is the
- *     backstop and NestJS guards are the primary enforcement.
+ * Two mutually exclusive modes, chosen at boot:
+ *
+ *   supabase — SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY point at a real
+ *   Supabase project. This client uses the SERVICE-ROLE key (bypasses RLS),
+ *   so it is NEVER imported by frontend code and NEVER shipped to the
+ *   browser. OTPs are sent/verified by Supabase Auth (requires an SMS
+ *   provider on the Supabase project).
+ *
+ *   local — no usable Supabase config (missing or placeholder). OTPs are
+ *   issued/verified by LocalAuthService (stored hashed in otp_codes) and
+ *   sessions are self-signed JWTs. 100% free, no external provider. The
+ *   OTP is returned to the client for demo delivery.
+ *
+ * Callers (AuthService, JwtAuthGuard) use the same method signatures in
+ * both modes and never need to know which one is active.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { type ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
+import { LocalAuthService } from './local-auth.service';
+import { PrismaClient } from '../lib/prisma';
+
+export type AuthMode = 'supabase' | 'local';
 
 @Injectable()
 export class SupabaseServerService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseServerService.name);
   private client!: SupabaseClient;
+  private mode: AuthMode = 'local';
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly localAuth: LocalAuthService,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   onModuleInit() {
+    const forced = this.config.get<string>('AUTH_MODE');
     const url = this.config.get<string>('SUPABASE_URL');
     const serviceRoleKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!url || !serviceRoleKey) {
-      this.logger.error(
-        'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY — Supabase client cannot be initialised',
-      );
-      throw new Error('Supabase server configuration is incomplete');
+    const usable =
+      !!url &&
+      !!serviceRoleKey &&
+      !url.includes('placeholder') &&
+      !serviceRoleKey.includes('placeholder');
+
+    this.mode = forced === 'supabase' && usable ? 'supabase' : forced === 'local' ? 'local' : usable ? 'supabase' : 'local';
+
+    if (this.mode === 'local') {
+      if (forced === 'supabase') {
+        this.logger.error(
+          'AUTH_MODE=supabase was requested but SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY are missing or placeholder — falling back to local auth mode.',
+        );
+      } else {
+        this.logger.warn('Supabase is not configured — using built-in local auth (free demo OTP mode).');
+      }
+      return;
     }
 
-    this.client = createClient(url, serviceRoleKey, {
+    this.client = createClient(url!, serviceRoleKey!, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
         detectSessionInUrl: false,
       },
     });
-
     this.logger.log('Supabase server client initialised (service-role)');
   }
 
-  /**
-   * Returns the underlying Supabase client. Use sparingly — most operations
-   * should go through well-named methods on this service so that audit
-   * logging and rate limiting can be applied uniformly.
-   */
-  getClient(): SupabaseClient {
-    return this.client;
+  /** Which auth backend is active. */
+  getMode(): AuthMode {
+    return this.mode;
   }
 
   /**
    * Send an OTP to the given phone number.
-   * Returns true if the OTP was sent, false otherwise.
-   * The caller is responsible for rate-limiting and for returning a generic
-   * "202 Accepted" to the client regardless of the result, to prevent
-   * account enumeration.
+   * In local mode the generated code is returned as `demoCode` so the
+   * caller can surface it to the user (demo delivery).
    */
-  async sendOtp(phone: string): Promise<{ sent: boolean; error?: string }> {
+  async sendOtp(phone: string): Promise<{ sent: boolean; demoCode?: string; error?: string }> {
+    if (this.mode === 'local') {
+      const demoCode = await this.localAuth.issueOtp(phone);
+      return { sent: true, demoCode };
+    }
     const { error } = await this.client.auth.signInWithOtp({
       phone,
       options: { shouldCreateUser: true },
@@ -73,17 +99,33 @@ export class SupabaseServerService implements OnModuleInit {
 
   /**
    * Verify an OTP for a phone number.
-   * On success, returns the session (access_token + refresh_token) and the
-   * user. On failure, returns null.
+   * On success, returns the session + user; on failure, user is null.
    */
   async verifyOtp(
     phone: string,
     token: string,
+    fullName?: string,
   ): Promise<{
     session: { access_token: string; refresh_token: string; expires_in: number } | null;
     user: { id: string; phone?: string; email?: string } | null;
     error?: string;
   }> {
+    if (this.mode === 'local') {
+      try {
+        const profileId = await this.localAuth.verifyOtp(phone, token, fullName);
+        const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+        return {
+          session: this.localAuth.mintSession(profileId, phone),
+          user: { id: profileId, phone, email: profile?.email ?? undefined },
+        };
+      } catch (err) {
+        return {
+          session: null,
+          user: null,
+          error: err instanceof Error ? err.message : 'verification failed',
+        };
+      }
+    }
     const { data, error } = await this.client.auth.verifyOtp({
       phone,
       token,
@@ -107,18 +149,20 @@ export class SupabaseServerService implements OnModuleInit {
   }
 
   /**
-   * Verify an access token by calling Supabase Auth's getUser endpoint.
-   * This is the OFFICIAL recommended approach for token verification in
-   * server-side Supabase integrations — it checks both the JWT signature
-   * AND whether the session is still valid (not revoked).
-   *
-   * Returns the user record on success, null on failure.
+   * Verify an access token.
+   * supabase mode: calls Supabase Auth's getUser endpoint (checks signature
+   * AND session revocation). local mode: verifies our own HS256 JWT.
    */
   async verifyToken(
     accessToken: string,
   ): Promise<{ id: string; phone?: string; email?: string } | null> {
-    // auth.getUser() verifies the JWT and fetches the user from the Auth service.
-    // It rejects if the JWT is malformed, expired, or revoked.
+    if (this.mode === 'local') {
+      const profileId = this.localAuth.verifyAccessToken(accessToken);
+      if (!profileId) return null;
+      const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+      if (!profile || !profile.isActive || profile.deletedAt) return null;
+      return { id: profile.id, phone: profile.phone, email: profile.email ?? undefined };
+    }
     const {
       data: { user },
       error,
@@ -142,6 +186,11 @@ export class SupabaseServerService implements OnModuleInit {
     session: { access_token: string; refresh_token: string; expires_in: number } | null;
     error?: string;
   }> {
+    if (this.mode === 'local') {
+      const session = this.localAuth.rotateRefreshToken(refreshToken);
+      if (!session) return { session: null, error: 'refresh failed' };
+      return { session };
+    }
     const { data, error } = await this.client.auth.refreshSession({
       refresh_token: refreshToken,
     });
@@ -159,22 +208,19 @@ export class SupabaseServerService implements OnModuleInit {
 
   /**
    * Sign out a user by revoking their session server-side.
-   * Supabase JS v2's `signOut()` uses the client's current session, so we
-   * first set the session from the access token, then sign out with the
-   * `global` scope to revoke all sessions for this user (defensive).
+   * local mode: stateless tokens — revocation is the cookie clear done by
+   * the controller, so this is a no-op success.
    */
-  async revokeSession(accessToken: string): Promise<{ success: boolean; error?: string }> {
-    // Set the session on the service-role client so signOut knows which
-    // user to revoke. We use a minimal refresh-token-less session because
-    // we only have the access token at this point.
+  async revokeSession(_accessToken: string): Promise<{ success: boolean; error?: string }> {
+    if (this.mode === 'local') {
+      return { success: true };
+    }
     try {
       const { error: setSessionError } = await this.client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: '', // not available at logout; signOut only needs access_token
+        access_token: _accessToken,
+        refresh_token: '',
       });
       if (setSessionError) {
-        // Even if setSession fails (e.g. token already expired), we still
-        // attempt signOut — the user's cookies will be cleared regardless.
         this.logger.warn?.(`setSession failed during logout: ${setSessionError.message}`);
       }
       const { error } = await this.client.auth.signOut({ scope: 'global' });

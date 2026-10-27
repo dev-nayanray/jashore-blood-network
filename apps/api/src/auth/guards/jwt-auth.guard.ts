@@ -28,9 +28,9 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { type Reflector } from '@nestjs/core';
-import { type PrismaClient } from '../../lib/prisma';
-import { type SupabaseServerService } from '../supabase-server.service';
+import { Reflector } from '@nestjs/core';
+import { PrismaClient } from '../../lib/prisma';
+import { SupabaseServerService } from '../supabase-server.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { CURRENT_USER_KEY } from '../decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../types';

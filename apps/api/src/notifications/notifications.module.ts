@@ -7,10 +7,12 @@
  */
 
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { ResendEmailProvider } from './email/resend-email.provider';
 import { EMAIL_PROVIDER } from './email/email-provider.interface';
+import { PRISMA_CLIENT } from '../database/database.module';
 
 @Module({
   controllers: [NotificationsController],
@@ -34,7 +36,7 @@ import { EMAIL_PROVIDER } from './email/email-provider.interface';
           config as never,
         );
       },
-      inject: ['PRISMA_CLIENT', EMAIL_PROVIDER, 'ConfigService'],
+      inject: [PRISMA_CLIENT, EMAIL_PROVIDER, ConfigService],
     },
   ],
   exports: [NotificationsService],

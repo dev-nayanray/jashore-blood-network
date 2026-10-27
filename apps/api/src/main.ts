@@ -3,15 +3,66 @@ import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { seedDemoData, DEMO_ADMIN_PHONE } from './seed/demo-seed';
+import { prisma } from './lib/prisma';
 import type { ApiEnv } from '@jbn/validation';
+
+const execAsync = promisify(exec);
+
+/**
+ * Apply pending Prisma migrations, then seed demo data when the database
+ * is empty (skip with DEMO_SEED=false). Best-effort: a failure is logged
+ * loudly but never blocks the API from booting.
+ */
+async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, true>) {
+  const apiRoot = join(__dirname, '..'); // apps/api (dist/..)
+  try {
+    logger.log('Applying pending database migrations...');
+    const { stdout } = await execAsync(
+      'npx --yes prisma migrate deploy --schema=prisma/schema.prisma',
+      { cwd: apiRoot, env: process.env },
+    );
+    logger.log(`Migrations applied:\n${stdout.trim()}`);
+  } catch (err) {
+    logger.error(
+      `prisma migrate deploy failed (continuing boot): ${err instanceof Error ? err.message : err}`,
+    );
+  }
+
+  if (config.get<string>('DEMO_SEED') === 'false') {
+    logger.log('DEMO_SEED=false — skipping demo data seed');
+    return;
+  }
+  try {
+    const profiles = await prisma.profile.count();
+    if (profiles > 0) {
+      logger.log(`Database already has ${profiles} profiles — skipping demo seed`);
+      return;
+    }
+    const result = await seedDemoData(prisma);
+    logger.log(
+      `Demo data seeded: ${result.donors} donors, ${result.requests} requests, ${result.hospitals} hospitals. ` +
+        `Demo admin phone: ${DEMO_ADMIN_PHONE}`,
+    );
+  } catch (err) {
+    logger.error(
+      `Demo seed failed (continuing boot): ${err instanceof Error ? err.message : err}`,
+    );
+  }
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
+
+  await prepareDatabase(logger, app.get(ConfigService<ApiEnv, true>));
 
   // Trust the first proxy (Render terminates TLS for us)
   app.getHttpAdapter().getInstance().set('trust proxy', 1);

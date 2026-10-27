@@ -27,7 +27,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma, type PrismaClient } from '../lib/prisma';
+import { Prisma, PrismaClient } from '../lib/prisma';
 import type {
   CreateDonorProfileInput,
   UpdateDonorProfileInput,

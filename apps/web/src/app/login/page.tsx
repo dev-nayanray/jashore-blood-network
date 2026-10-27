@@ -6,26 +6,19 @@ import Link from 'next/link';
 import { apiBaseUrl } from '@/lib/env';
 
 /**
- * Login page — redesigned to match reference design.
+ * Login page — phone OTP sign-in.
  *
- * Design from reference:
- *   - Blood drop logo with ECG line
- *   - "Donate Blood, Save Lives" tagline
- *   - Phone input with +880 prefix
- *   - Password field
- *   - Login button (red)
- *   - OTP verification option
- *   - Register new account link
+ * The backend runs in "local demo auth" mode when no SMS/Supabase provider
+ * is configured: /auth/otp/request returns the OTP as `demoOtp` and this
+ * page displays it in a clearly-labelled box with tap-to-fill, so the
+ * platform is fully usable for demos at zero cost.
  */
-
-type LoginMode = 'password' | 'otp';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<LoginMode>('otp');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [step, setStep] = useState<'input' | 'otp'>('input');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +41,17 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: fullPhone }),
       });
-      // Always 202 — anti-enumeration
+      const body = (await res.json().catch(() => ({}))) as { demoOtp?: string };
       if (res.status === 429) {
         setError('Too many attempts. Please wait a few minutes.');
       } else if (res.status === 202) {
         setStep('otp');
-        setSuccess('OTP sent! Check your phone for the 6-digit code.');
+        setDemoOtp(body.demoOtp ?? null);
+        setSuccess(
+          body.demoOtp
+            ? 'Demo mode: no SMS provider is connected — use the code shown below.'
+            : 'OTP sent! Check your phone for the 6-digit code.',
+        );
       } else {
         setError('Something went wrong. Please try again.');
       }
@@ -82,9 +80,11 @@ export default function LoginPage() {
       if (res.status === 429) {
         setError('Too many attempts. Please wait.');
       } else if (res.status === 401) {
-        setError('Invalid OTP. Please check and try again.');
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        setError(body.message ?? 'Invalid OTP. Please check and try again.');
       } else if (res.ok) {
         router.push('/');
+        router.refresh();
       } else {
         setError('Verification failed. Please try again.');
       }
@@ -101,8 +101,8 @@ export default function LoginPage() {
         {/* Logo + Tagline */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-lg">
-            <svg className="h-12 w-12 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.653 16.915V19h2.694v-2.085c1.604-.214 3.07-.937 4.092-2.085 1.022-1.148 1.529-2.582 1.529-4.283 0-1.7-.507-3.135-1.529-4.283-1.022-1.148-2.488-1.871-4.092-2.085V2.085H9.653v2.085C8.049 4.384 6.583 5.107 5.561 6.255 4.539 7.403 4.032 8.838 4.032 10.538c0 1.701.507 3.135 1.529 4.283 1.022 1.148 2.488 1.871 4.092 2.085z"/>
+            <svg className="h-12 w-12 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M9.653 16.915V19h2.694v-2.085c1.604-.214 3.07-.937 4.092-2.085 1.022-1.148 1.529-2.582 1.529-4.283 0-1.7-.507-3.135-1.529-4.283-1.022-1.148-2.488-1.871-4.092-2.085V2.085H9.653v2.085C8.049 4.384 6.583 5.107 5.561 6.255 4.539 7.403 4.032 8.838 4.032 10.538c0 1.701.507 3.135 1.529 4.283 1.022 1.148 2.488 1.871 4.092 2.085z" />
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-neutral-900">রক্ত দেই</h1>
@@ -115,9 +115,27 @@ export default function LoginPage() {
             {error}
           </div>
         )}
-        {success && (
+        {success && !error && (
           <div role="status" className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             {success}
+          </div>
+        )}
+
+        {/* Demo OTP box — only in free demo mode */}
+        {step === 'otp' && demoOtp && (
+          <div className="mb-4 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+              Demo mode — your OTP
+            </p>
+            <button
+              type="button"
+              onClick={() => setOtp(demoOtp)}
+              className="mt-1 text-3xl font-bold tracking-[0.3em] text-amber-900 transition hover:text-amber-700"
+              title="Tap to fill the code"
+            >
+              {demoOtp}
+            </button>
+            <p className="mt-1 text-[11px] text-amber-600">Tap the code to auto-fill · no SMS is sent</p>
           </div>
         )}
 
@@ -125,7 +143,6 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-xl">
           {step === 'input' ? (
             <>
-              {/* Phone Input */}
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label htmlFor="phone" className="block text-sm font-medium text-neutral-700">Phone Number</label>
@@ -141,11 +158,11 @@ export default function LoginPage() {
                       className="block w-full bg-transparent py-3 pr-3 text-base text-neutral-900 focus:outline-none"
                       disabled={submitting}
                       maxLength={11}
+                      autoFocus
                     />
                   </div>
                 </div>
 
-                {/* OTP Button */}
                 <button
                   type="submit"
                   disabled={submitting || phone.length < 10}
@@ -155,14 +172,12 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              {/* Divider */}
               <div className="my-4 flex items-center gap-3">
                 <div className="h-px flex-1 bg-neutral-200" />
                 <span className="text-xs text-neutral-400">or</span>
                 <div className="h-px flex-1 bg-neutral-200" />
               </div>
 
-              {/* Register Link */}
               <p className="text-center text-sm text-neutral-600">
                 New here?{' '}
                 <Link href="/register" className="font-semibold text-red-600 hover:underline">
@@ -172,7 +187,6 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              {/* OTP Step */}
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <div className="text-center">
                   <p className="text-sm text-neutral-600">Enter the 6-digit code sent to</p>
@@ -204,7 +218,7 @@ export default function LoginPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setStep('input'); setOtp(''); setError(null); setSuccess(null); }}
+                  onClick={() => { setStep('input'); setOtp(''); setError(null); setSuccess(null); setDemoOtp(null); }}
                   disabled={submitting}
                   className="w-full text-center text-sm text-neutral-500 hover:text-neutral-800"
                 >
@@ -215,7 +229,26 @@ export default function LoginPage() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Demo accounts hint */}
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white/70 p-3 text-center text-xs text-neutral-500">
+          <span className="font-semibold text-neutral-600">Demo accounts:</span>{' '}
+          <button
+            type="button"
+            onClick={() => { setPhone('17000000000'); setStep('input'); setError(null); setSuccess(null); }}
+            className="text-red-600 hover:underline"
+          >
+            Admin 01700000000
+          </button>
+          {' · '}
+          <button
+            type="button"
+            onClick={() => { setPhone('17000000001'); setStep('input'); setError(null); setSuccess(null); }}
+            className="text-red-600 hover:underline"
+          >
+            Donor 01700000001
+          </button>
+        </div>
+
         <p className="mt-6 text-center text-xs text-neutral-400">
           By logging in, you agree to our{' '}
           <Link href="/about" className="text-red-500 hover:underline">Terms</Link> &{' '}

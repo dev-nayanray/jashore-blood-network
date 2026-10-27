@@ -15,7 +15,7 @@
  */
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { type PrismaClient } from '../lib/prisma';
+import { PrismaClient } from '../lib/prisma';
 import type { Role } from '@jbn/shared-types';
 
 export interface DashboardMetrics {

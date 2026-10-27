@@ -18,6 +18,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SupabaseServerService } from './supabase-server.service';
+import { LocalAuthService } from './local-auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PoliciesGuard } from './guards/policies.guard';
@@ -38,6 +39,7 @@ import { IsOwnerPolicy } from './policies/is-owner.policy';
   ],
   controllers: [AuthController],
   providers: [
+    LocalAuthService,
     SupabaseServerService,
     AuthService,
     JwtAuthGuard,

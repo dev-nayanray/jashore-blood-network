@@ -42,6 +42,12 @@ export interface AuthMeResponse {
 export interface OtpRequestResponse {
   status: 'pending';
   message: string;
+  /**
+   * Present only in local (free demo) auth mode: the OTP itself, so the
+   * frontend can display it — there is no SMS/email provider attached.
+   * Never populated in supabase mode.
+   */
+  demoOtp?: string;
 }
 
 /**
@@ -75,7 +81,7 @@ export const ACCESS_TOKEN_COOKIE_OPTIONS = {
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/',
-  maxAge: 60 * 60, // 1 hour (matches Supabase access token lifetime)
+  maxAge: 60 * 60 * 1000, // 1 hour (express maxAge is in MILLISECONDS)
 };
 
 export const REFRESH_TOKEN_COOKIE_OPTIONS = {
@@ -83,7 +89,7 @@ export const REFRESH_TOKEN_COOKIE_OPTIONS = {
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/api/v1/auth', // sent only to auth endpoints
-  maxAge: 60 * 60 * 24 * 7, // 7 days
+  maxAge: 60 * 60 * 24 * 7 * 1000, // 7 days (milliseconds)
 };
 
 /**

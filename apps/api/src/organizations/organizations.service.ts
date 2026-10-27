@@ -29,7 +29,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { type PrismaClient } from '../lib/prisma';
+import { PrismaClient } from '../lib/prisma';
 import type { Role } from '@jbn/shared-types';
 
 const MODERATOR_ROLES: Role[] = ['MODERATOR', 'DISTRICT_ADMINISTRATOR', 'SUPER_ADMINISTRATOR'];

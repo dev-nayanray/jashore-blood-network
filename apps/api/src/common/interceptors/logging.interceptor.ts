@@ -5,7 +5,7 @@ import {
   type NestInterceptor,
   Logger,
 } from '@nestjs/common';
-import { type Observable, tap } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 
 /**
  * Lightweight request logging interceptor.

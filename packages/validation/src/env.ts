@@ -37,6 +37,16 @@ export const apiEnvSchema = sharedEnvSchema.extend({
   JWT_COOKIE_DOMAIN: z.string().default(''),
   EMAIL_FROM: z.string().email().optional(),
   RESEND_API_KEY: z.string().optional(),
+  /**
+   * Auth backend: 'supabase' (real Supabase project + SMS provider) or
+   * 'local' (built-in free OTP: codes hashed in otp_codes, self-signed JWT
+   * sessions, OTP returned to the client for demo delivery). Defaults to
+   * auto-detection: supabase when the Supabase config is usable, else local.
+   */
+  AUTH_MODE: z.enum(['supabase', 'local']).optional(),
+  /** Set 'false' to skip seeding demo data into an empty database on boot. */
+  DEMO_SEED: z.enum(['true', 'false']).optional(),
+  RATE_LIMIT_DEFAULT_PER_MINUTE: z.coerce.number().int().positive().optional(),
 });
 
 /**

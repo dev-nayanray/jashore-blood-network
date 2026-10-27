@@ -765,6 +765,22 @@ model SuspiciousActivityFlag {
 // AUDIT LOGS (append-only)
 // =============================================================================
 
+/// One-time passcodes for the built-in (self-hosted) OTP auth mode.
+/// Used only when Supabase Auth is not configured (AUTH_MODE=local).
+/// Codes are stored hashed (sha256), single-use, and expire quickly.
+model OtpCode {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone       String    @db.VarChar(20)
+  codeHash    String    @map("code_hash") @db.VarChar(128)
+  attempts    Int       @default(0)
+  expiresAt   DateTime  @map("expires_at")
+  consumedAt  DateTime? @map("consumed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("otp_codes")
+  @@index([phone, createdAt(sort: Desc)])
+}
+
 model AuditLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorId     String?  @map("actor_id") @db.Uuid
