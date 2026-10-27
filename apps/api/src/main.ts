@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { bootDiagnostics } from './health/health.controller';
 import { seedDemoData, DEMO_ADMIN_PHONE } from './seed/demo-seed';
 import { prisma } from './lib/prisma';
 import type { ApiEnv } from '@jbn/validation';
@@ -15,9 +16,9 @@ import type { ApiEnv } from '@jbn/validation';
 const execAsync = promisify(exec);
 
 /**
- * Apply pending Prisma migrations, then seed demo data when the database
- * is empty (skip with DEMO_SEED=false). Best-effort: a failure is logged
- * loudly but never blocks the API from booting.
+ * Apply pending Prisma migrations, then seed demo data (idempotent; skip
+ * with DEMO_SEED=false). Best-effort: failures are logged, recorded in
+ * bootDiagnostics (exposed via /health), and never block the API boot.
  */
 async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, true>) {
   const apiRoot = join(__dirname, '..'); // apps/api (dist/..)
@@ -27,8 +28,10 @@ async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, tru
       'npx --yes prisma migrate deploy --schema=prisma/schema.prisma',
       { cwd: apiRoot, env: process.env },
     );
+    bootDiagnostics.migrations = 'ok';
     logger.log(`Migrations applied:\n${stdout.trim()}`);
   } catch (err) {
+    bootDiagnostics.migrations = 'failed';
     logger.error(
       `prisma migrate deploy failed (continuing boot): ${err instanceof Error ? err.message : err}`,
     );
@@ -36,6 +39,7 @@ async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, tru
 
   if (config.get<string>('DEMO_SEED') === 'false') {
     logger.log('DEMO_SEED=false — skipping demo data seed');
+    bootDiagnostics.seed = 'ok';
     return;
   }
   try {
@@ -44,13 +48,16 @@ async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, tru
     // left untouched and only missing demo records (incl. the demo
     // admin account) are created.
     const result = await seedDemoData(prisma);
+    bootDiagnostics.seed = 'ok';
     logger.log(
       `Demo data ensured: ${result.donors} donors, ${result.requests} new requests, ${result.hospitals} new hospitals. ` +
         `Demo admin phone: ${DEMO_ADMIN_PHONE}`,
     );
   } catch (err) {
+    bootDiagnostics.seed = 'failed';
+    bootDiagnostics.seedError = err instanceof Error ? err.message : String(err);
     logger.error(
-      `Demo seed failed (continuing boot): ${err instanceof Error ? err.message : err}`,
+      `Demo seed failed (continuing boot): ${bootDiagnostics.seedError}`,
     );
   }
 }

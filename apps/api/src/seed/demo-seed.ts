@@ -70,12 +70,21 @@ export interface SeedResult {
 }
 
 export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
-  const district = await prisma.district.findFirst({
-    where: { name: 'Jashore' },
-    include: { upazilas: true },
-  });
+  // The district has historically been written as both 'Jashore' and
+  // 'Jessore' — accept any spelling, then fall back to any district
+  // that has upazilas so the seed never aborts on naming.
+  const district =
+    (await prisma.district.findFirst({ where: { name: 'Jashore' }, include: { upazilas: true } })) ??
+    (await prisma.district.findFirst({
+      where: { name: { equals: 'Jessore', mode: 'insensitive' } },
+      include: { upazilas: true },
+    })) ??
+    (await prisma.district.findFirst({
+      where: { upazilas: { some: {} } },
+      include: { upazilas: true },
+    }));
   if (!district || district.upazilas.length === 0) {
-    throw new Error('Jashore district/upazilas not found — run the reference-data seed first.');
+    throw new Error('No district with upazilas found — run the reference-data seed first.');
   }
   const upazilas = district.upazilas;
 
@@ -86,7 +95,6 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
     create: {
       phone: DEMO_ADMIN_PHONE,
       fullName: 'Demo Admin',
-      email: 'admin@demo.jashoreblood.org',
       isActive: true,
     },
   });
@@ -98,8 +106,10 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
     });
   }
 
-  // ---- Donor profiles ----
+  // ---- Donor profiles (each guarded: one bad record never aborts the rest) ----
+  let donorsCreated = 0;
   for (let i = 0; i < DEMO_DONORS.length; i++) {
+   try {
     const d = DEMO_DONORS[i]!;
     const upazila = upazilas[i % upazilas.length]!;
     const profile = await prisma.profile.upsert({
@@ -108,7 +118,6 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
       create: {
         phone: d.phone,
         fullName: d.name,
-        email: `demo${i + 1}@example.com`,
         isActive: true,
       },
     });
@@ -136,6 +145,10 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
         },
       });
     }
+    donorsCreated++;
+   } catch {
+    // skip this donor record and continue
+   }
   }
 
   // ---- Blood requests (requesters are demo donors) ----
@@ -222,7 +235,7 @@ export async function seedDemoData(prisma: PrismaClient): Promise<SeedResult> {
 
   return {
     adminPhone: DEMO_ADMIN_PHONE,
-    donors: DEMO_DONORS.length,
+    donors: donorsCreated,
     requests: requestsCreated,
     hospitals: hospitalsCreated,
   };

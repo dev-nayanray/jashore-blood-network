@@ -19,19 +19,31 @@ import type { HealthCheckResponse } from '@jbn/shared-types';
 
 const START_TIME = Date.now();
 
+/**
+ * Boot diagnostics filled in by prepareDatabase() in main.ts so the
+ * health endpoint can surface migrate/seed outcomes without dashboard
+ * access to the logs.
+ */
+export const bootDiagnostics: {
+  migrations: 'ok' | 'failed' | 'unknown';
+  seed: 'ok' | 'failed' | 'unknown';
+  seedError?: string;
+} = { migrations: 'unknown', seed: 'unknown' };
+
 @Controller('health')
 export class HealthController {
   @Get()
   @Public()
   @Header('Content-Type', 'application/json')
   @Header('Cache-Control', 'no-store')
-  check(): HealthCheckResponse {
+  check(): HealthCheckResponse & { boot: typeof bootDiagnostics } {
     return {
       status: 'ok',
       service: 'jashore-blood-network-api',
       version: '0.1.0',
       timestamp: new Date().toISOString(),
       uptime: Math.round((Date.now() - START_TIME) / 1000),
+      boot: bootDiagnostics,
     };
   }
 }
