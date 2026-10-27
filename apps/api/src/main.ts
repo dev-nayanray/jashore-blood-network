@@ -39,14 +39,13 @@ async function prepareDatabase(logger: Logger, config: ConfigService<ApiEnv, tru
     return;
   }
   try {
-    const profiles = await prisma.profile.count();
-    if (profiles > 0) {
-      logger.log(`Database already has ${profiles} profiles — skipping demo seed`);
-      return;
-    }
+    // seedDemoData is fully idempotent (every record is an upsert or
+    // guarded find-first), so it runs on every boot: existing rows are
+    // left untouched and only missing demo records (incl. the demo
+    // admin account) are created.
     const result = await seedDemoData(prisma);
     logger.log(
-      `Demo data seeded: ${result.donors} donors, ${result.requests} requests, ${result.hospitals} hospitals. ` +
+      `Demo data ensured: ${result.donors} donors, ${result.requests} new requests, ${result.hospitals} new hospitals. ` +
         `Demo admin phone: ${DEMO_ADMIN_PHONE}`,
     );
   } catch (err) {
