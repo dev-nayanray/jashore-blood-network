@@ -9,7 +9,7 @@ services:
     name: jashore-blood-network-api
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @jbn/api build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm exec turbo run build --filter=@jbn/api...
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     autoDeploy: true
